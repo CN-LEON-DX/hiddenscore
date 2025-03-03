@@ -40,3 +40,6 @@ backend
 # Temporary files
 tmp/
 temp/
+
+!internal/
+!internal/**/*
