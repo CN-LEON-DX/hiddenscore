@@ -45,6 +45,7 @@ func main() {
 	// Public routes
 	r.GET("/auth/google/login", authHandler.GoogleLogin)
 	r.GET("/auth/google/callback", authHandler.GoogleCallback)
+	r.GET("/auth/logout", authHandler.Logout)
 
 	// Protected routes
 	auth := r.Group("/")

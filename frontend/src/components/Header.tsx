@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
     Dialog,
     DialogPanel,
@@ -13,10 +13,16 @@ import {
 import {
     Bars3Icon,
     XMarkIcon,
-    SparklesIcon, HeartIcon, CubeIcon, SquaresPlusIcon, PencilIcon
+    SparklesIcon, HeartIcon, CubeIcon, SquaresPlusIcon, PencilIcon,
+    UserIcon,
+    Cog6ToothIcon,
+    KeyIcon,
+    ClockIcon,
+    ShoppingCartIcon
 } from '@heroicons/react/24/outline'
 
 import { ChevronDownIcon, PhoneIcon, PlayCircleIcon } from '@heroicons/react/20/solid'
+import useAuth from '../hooks/useAuth';
 
 const products = [
     { name: 'Engagement Rings', description: 'Stunning diamond rings for your special moment', href: '/engagement-rings', icon: HeartIcon },
@@ -31,19 +37,47 @@ const callsToAction = [
 ]
 
 const Header = () => {
-    const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+    const { user, logout } = useAuth();
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+    const [cartItemCount, setCartItemCount] = useState(0);
+    const defaultImage = '/user.png';
+
+    const profileMenuItems = [
+        { name: 'Profile', href: '/profile', icon: UserIcon },
+        { name: 'Settings', href: '/settings', icon: Cog6ToothIcon },
+        { name: 'Change Password', href: '/change-password', icon: KeyIcon },
+        { name: 'Order History', href: '/order-history', icon: ClockIcon },
+    ];
+
+    useEffect(() => {
+        fetch('/api/cart')
+            .then(response => response.json())
+            .then(data => setCartItemCount(data.cartItems.length))
+            .catch(error => console.error('Error fetching cart items:', error));
+    }, []);
 
     return (
         <header className="bg-white">
             <nav aria-label="Global" className="mx-auto flex max-w-7xl items-center justify-between p-6 lg:px-8">
                 <div className="flex lg:flex-1">
                     <a href="/" className="-m-1.5 p-1.5">
-                        <span className="sr-only">Your Company</span>
+                        <span className="sr-only">hiddenscore</span>
                         <img
                             alt=""
                             src="/logo.svg"
                             className="h-8 w-auto"
                         />
+                    </a>
+                </div>
+                <div className="flex items-center gap-4 mx-4">
+                    <a href="/cart" className="relative">
+                        <ShoppingCartIcon className="h-6 w-6 text-gray-700" />
+                        {cartItemCount > 0 && (
+                            <span className="absolute -top-2 -right-2 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-red-100 bg-red-600 rounded-full">
+                                {cartItemCount}
+                            </span>
+                        )}
                     </a>
                 </div>
                 <div className="flex lg:hidden">
@@ -112,9 +146,58 @@ const Header = () => {
                     </a>
                 </PopoverGroup>
                 <div className="hidden lg:flex lg:flex-1 lg:justify-end">
-                    <a href="/login" className="text-sm/6 font-semibold text-gray-900">
+                    
+                    {user ? (
+                        <div className="flex items-center gap-2 relative">
+                            <Popover className="relative">
+                                <PopoverButton className="flex items-center gap-x-1">
+                                    <img 
+                                        src={user?.picture || defaultImage} 
+                                        alt="Profile" 
+                                        className="w-8 h-8 rounded-full object-cover border-gray-200 cursor-pointer"
+                                    />
+                                </PopoverButton>
+                                <PopoverPanel
+                                    transition
+                                    className="absolute right-0 z-10 mt-2 w-56 origin-top-right divide-y divide-gray-100 rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none"
+                                >
+                                    <div className="p-2">
+                                        <div className="px-4 py-3 text-sm text-gray-900 border-b border-gray-200">
+                                            <div className="font-medium">{user?.name || 'User'}</div>
+                                            <div className="truncate">{user?.email || 'user@example.com'}</div>
+                                        </div>
+                                        <div className="py-1">
+                                            {profileMenuItems.map((item) => (
+                                                <a
+                                                    key={item.name}
+                                                    href={item.href}
+                                                    className="flex items-center gap-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md"
+                                                >
+                                                    <item.icon className="h-5 w-5 text-gray-500" aria-hidden="true" />
+                                                    {item.name}
+                                                </a>
+                                            ))}
+                                        </div>
+                                        <div className="py-1">
+                                            <button
+                                                onClick={logout}
+                                                className="flex w-full items-center gap-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md"
+                                            >
+                                                <XMarkIcon className="h-5 w-5 text-gray-500" aria-hidden="true" />
+                                                Logout
+                                            </button>
+                                        </div>
+                                    </div>
+                                </PopoverPanel>
+                            </Popover>
+                        </div>
+                    ) : (
+                        <a href="/login" className="text-sm/6 font-semibold text-gray-900">
                         Log in <span aria-hidden="true">&rarr;</span>
                     </a>
+                    )}
+
+                    
                 </div>
             </nav>
             <Dialog open={mobileMenuOpen} onClose={setMobileMenuOpen} className="lg:hidden">
@@ -122,10 +205,10 @@ const Header = () => {
                 <DialogPanel className="fixed inset-y-0 right-0 z-10 w-full overflow-y-auto bg-white px-6 py-6 sm:max-w-sm sm:ring-1 sm:ring-gray-900/10">
                     <div className="flex items-center justify-between">
                         <a href="#" className="-m-1.5 p-1.5">
-                            <span className="sr-only">Your Company</span>
+                            <span className="sr-only">hiddenscore</span>
                             <img
                                 alt=""
-                                src="https://tailwindcss.com/plus-assets/img/logos/mark.svg?color=indigo&shade=600"
+                                src="/logo.svg"
                                 className="h-8 w-auto"
                             />
                         </a>
@@ -179,12 +262,55 @@ const Header = () => {
                                 </a>
                             </div>
                             <div className="py-6">
-                                <a
-                                    href="/login"
-                                    className="-mx-3 block rounded-lg px-3 py-2.5 text-base/7 font-semibold text-gray-900 hover:bg-gray-50"
-                                >
-                                    Log in
-                                </a>
+                                {user ? (
+                                    <div>
+                                        <Disclosure>
+                                            {({ open }) => (
+                                                <>
+                                                    <DisclosureButton className="flex w-full items-center gap-2 -mx-3 rounded-lg px-3 py-2 text-base/7 font-semibold text-gray-900 hover:bg-gray-50">
+                                                        <img 
+                                                            src={user.picture || defaultImage} 
+                                                            alt="Profile" 
+                                                            className="w-8 h-8 rounded-full object-cover"
+                                                        />
+                                                        {user?.name || 'User'}
+                                                        <ChevronDownIcon
+                                                            className={`${
+                                                                open ? 'rotate-180 transform' : ''
+                                                            } h-5 w-5 text-gray-500 ml-auto`}
+                                                        />
+                                                    </DisclosureButton>
+                                                    <DisclosurePanel className="px-4 py-2 text-sm text-gray-500 space-y-2">
+                                                        {profileMenuItems.map((item) => (
+                                                            <a
+                                                                key={item.name}
+                                                                href={item.href}
+                                                                className="flex items-center gap-x-2 py-2 text-base/7 text-gray-700 hover:text-gray-900"
+                                                            >
+                                                                <item.icon className="h-5 w-5 text-gray-500" aria-hidden="true" />
+                                                                {item.name}
+                                                            </a>
+                                                        ))}
+                                                        <button 
+                                                            onClick={logout}
+                                                            className="flex items-center gap-x-2 py-2 w-full text-base/7 text-gray-700 hover:text-gray-900"
+                                                        >
+                                                            <XMarkIcon className="h-5 w-5 text-gray-500" aria-hidden="true" />
+                                                            Logout
+                                                        </button>
+                                                    </DisclosurePanel>
+                                                </>
+                                            )}
+                                        </Disclosure>
+                                    </div>
+                                ) : (
+                                    <a
+                                        href="/login"
+                                        className="-mx-3 block rounded-lg px-3 py-2.5 text-base/7 font-semibold text-gray-900 hover:bg-gray-50"
+                                    >
+                                        Log in
+                                    </a>
+                                )}
                             </div>
                         </div>
                     </div>

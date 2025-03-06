@@ -145,7 +145,6 @@ func (h *AuthHandler) generateJWT(user entity.User) (string, error) {
 	return tokenString, nil
 }
 
-// GetCurrentUser returns the currently authenticated user
 func (h *AuthHandler) GetCurrentUser(c *gin.Context) {
 	user, exists := c.Get("user")
 	if !exists {
@@ -193,4 +192,19 @@ func (h *AuthHandler) AuthMiddleware() gin.HandlerFunc {
 		c.Set("user", user)
 		c.Next()
 	}
+}
+
+func (h *AuthHandler) Logout(c *gin.Context) {
+	// Clear the auth_token cookie
+	c.SetCookie(
+		"auth_token",
+		"",    // empty value
+		-1,    // negative max age = delete cookie
+		"/",   // path
+		"",    // domain
+		false, // secure
+		true,  // http only
+	)
+
+	c.JSON(http.StatusOK, gin.H{"message": "Successfully logged out"})
 }
