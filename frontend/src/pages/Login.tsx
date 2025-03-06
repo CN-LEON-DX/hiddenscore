@@ -7,7 +7,7 @@ export default function Login() {
     const handleGoogleSignIn = async () => {
         setIsLoading(true);
         try {
-            window.location.href = `${import.meta.env.VITE_API_URL}/auth/google/login`;
+            window.location.href = `http://localhost:8081/auth/google/login`;
         } catch (error) {
             console.error("Google sign-in error:", error);
         } finally {

@@ -3,7 +3,8 @@ import './styles/App.css'
 import Home from "./pages/Home.tsx"
 import Login from "./pages/Login.tsx"
 import Signup from "./pages/Signup.tsx";
-import Products from "./pages/Products.tsx"; // Make sure this file exists
+import Products from "./pages/Products.tsx";
+import DetailProduct from "./pages/DetailProduct.tsx"; // Make sure this file exists
 
 function App() {
   return (
