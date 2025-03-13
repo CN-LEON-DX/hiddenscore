@@ -11,6 +11,26 @@ type PostgresProductRepository struct {
 	DB *sql.DB
 }
 
+func (r *PostgresProductRepository) GetAllProducts(products *[]entity.Product) error {
+	rows, err := r.DB.Query("SELECT id, name, description, price, image_url, stock, created_at, updated_at FROM products")
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var product entity.Product
+		var createdAt, updatedAt time.Time
+		if err := rows.Scan(&product.ID, &product.Name, &product.Description, &product.Price, &product.ImageURL, &product.Stock, &createdAt, &updatedAt); err != nil {
+			return err
+		}
+		product.CreatedAt = createdAt
+		product.UpdatedAt = updatedAt
+		*products = append(*products, product)
+	}
+	return nil
+}
+
 func (r *PostgresProductRepository) Create(product *entity.Product) error {
 	now := time.Now()
 

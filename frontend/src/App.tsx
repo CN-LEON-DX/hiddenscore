@@ -5,6 +5,7 @@ import Login from "./pages/Login.tsx"
 import Signup from "./pages/Signup.tsx";
 import Products from "./pages/Products.tsx";
 import DetailProduct from "./pages/DetailProduct.tsx"; // Make sure this file exists
+import Cart from './pages/Cart.tsx';
 
 function App() {
   return (
@@ -15,6 +16,7 @@ function App() {
           <Route path="/signup" element={<Signup />} />
           <Route path="/products" element={<Products />} />
           <Route path="/products/:productId" element={<DetailProduct />} />
+          <Route path="/cart" element={<Cart />} />
           </Routes>
       </BrowserRouter>
   )

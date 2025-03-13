@@ -20,6 +20,10 @@ const ProductDetail = () => {
         certification: 'GIA'
     };
 
+    const addToCart = () => {
+
+    };
+
     return (
         <>
             <Helmet>
@@ -46,8 +50,11 @@ const ProductDetail = () => {
                             </ul>
                         </div>
                         <div className="mt-6">
-                            <button className="inline-block rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500">
-                                Add to Cart
+                            <button
+                                    onClick={addToCart}
+                                    className="inline-block rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
+                                >
+                                    Add to Cart
                             </button>
                         </div>
                     </div>

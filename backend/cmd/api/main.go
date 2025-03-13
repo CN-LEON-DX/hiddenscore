@@ -13,7 +13,7 @@ import (
 )
 
 func main() {
-	// Load environment variables
+	// Load environment var
 	if err := godotenv.Load(); err != nil {
 		log.Println("Warning: .env file not found")
 	}
@@ -24,14 +24,15 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// Initialize repositories
+	// repositories
 	userRepo := &repository.PostgresUserRepository{DB: db}
+	productRepo := &repository.PostgresProductRepository{DB: db}
 
-	// Initialize handlers
+	// handlers
 	userHandler := &handler.UserHandler{Repo: userRepo}
 	authHandler := handler.NewAuthHandler(userRepo)
+	productHandler := &handler.ProductHandler{productRepo}
 
-	// Initialize Gin router
 	r := gin.Default()
 
 	// Configure CORS
@@ -46,6 +47,7 @@ func main() {
 	r.GET("/auth/google/login", authHandler.GoogleLogin)
 	r.GET("/auth/google/callback", authHandler.GoogleCallback)
 	r.GET("/auth/logout", authHandler.Logout)
+	r.GET("/products", productHandler.GetProducts)
 
 	// Protected routes
 	auth := r.Group("/")

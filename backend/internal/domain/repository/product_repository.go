@@ -5,6 +5,7 @@ import (
 )
 
 type ProductRepository interface {
+	GetAllProducts(products *[]entity.Product) error
 	Create(product *entity.Product) error
 	FindByID(id uint) (*entity.Product, error)
 	FindAll() ([]entity.Product, error)

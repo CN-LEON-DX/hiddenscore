@@ -39,7 +39,6 @@ const callsToAction = [
 const Header = () => {
     const { user, logout } = useAuth();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-    const [profileMenuOpen, setProfileMenuOpen] = useState(false);
     const [cartItemCount, setCartItemCount] = useState(0);
     const defaultImage = '/user.png';
 

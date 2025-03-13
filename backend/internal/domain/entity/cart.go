@@ -10,7 +10,8 @@ type Cart struct {
 	UserID    uint       `json:"user_id"`
 	User      User       `json:"user" gorm:"foreignKey:UserID"`
 	CartItems []CartItem `json:"cart_items"`
-	Active    bool       `json:"active" gorm:"default:true"` // To distinguish between active carts and completed orders
+	Status    int        `json:"status" gorm:"default:0"`
+	Active    bool       `json:"active" gorm:"default:true"`
 }
 
 // CartItem represents a product in a cart with its quantity

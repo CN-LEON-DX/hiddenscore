@@ -12,12 +12,13 @@ interface User {
   name: string;
   picture: string | null;
 }
+const REACT_APP_API_URL = process.env.REACT_APP_API_URL;
 
 const useAuth = () => {
   const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
-    axios.get('http://localhost:8081/me', {
+    axios.get(REACT_APP_API_URL+`/me`, {
       withCredentials: true 
     })
     .then(response => {
@@ -30,7 +31,7 @@ const useAuth = () => {
 
 
   const logout = () => {
-    axios.get('http://localhost:8081/auth/logout', {
+    axios.get(REACT_APP_API_URL + '/auth/logout', {
       withCredentials: true
     })
     .then(() => {
