@@ -31,7 +31,7 @@ func main() {
 	// handlers
 	userHandler := &handler.UserHandler{Repo: userRepo}
 	authHandler := handler.NewAuthHandler(userRepo)
-	productHandler := &handler.ProductHandler{productRepo}
+	productHandler := handler.NewProductHandler(productRepo)
 
 	r := gin.Default()
 
@@ -48,6 +48,7 @@ func main() {
 	r.GET("/auth/google/callback", authHandler.GoogleCallback)
 	r.GET("/auth/logout", authHandler.Logout)
 	r.GET("/products", productHandler.GetProducts)
+	r.GET("/products/detail/:id", productHandler.GetProductByID)
 
 	// Protected routes
 	auth := r.Group("/")

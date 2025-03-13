@@ -12,13 +12,13 @@ interface User {
   name: string;
   picture: string | null;
 }
-const REACT_APP_API_URL = process.env.REACT_APP_API_URL;
+const API_URL = import.meta.env.VITE_REACT_APP_API_URL;
 
 const useAuth = () => {
   const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
-    axios.get(REACT_APP_API_URL+`/me`, {
+    axios.get(API_URL+`/me`, {
       withCredentials: true 
     })
     .then(response => {
@@ -31,7 +31,7 @@ const useAuth = () => {
 
 
   const logout = () => {
-    axios.get(REACT_APP_API_URL + '/auth/logout', {
+    axios.get(API_URL + '/auth/logout', {
       withCredentials: true
     })
     .then(() => {
