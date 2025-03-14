@@ -5,7 +5,7 @@ import Login from "./pages/Login.tsx"
 import Signup from "./pages/Signup.tsx";
 import ConfirmEmail from "./pages/ConfirmEmail.tsx";
 import Products from "./pages/Products.tsx";
-import DetailProduct from "./pages/DetailProduct.tsx"; // Make sure this file exists
+import DetailProduct from "./pages/DetailProduct.tsx";
 import Cart from './pages/Cart.tsx';
 import Header from "./components/Header.tsx";
 import Footer from "./components/Footer.tsx";
