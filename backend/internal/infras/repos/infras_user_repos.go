@@ -11,6 +11,13 @@ type PostgresUserRepository struct {
 	DB *gorm.DB
 }
 
+func (r *PostgresUserRepository) FindByEmail(email string) (*entity.User, error) {
+	var user entity.User
+	if err := r.DB.Where("email = ?", email).First(&user).Error; err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
 func (r *PostgresUserRepository) GetAllUsers() ([]entity.User, error) {
 	var users []entity.User
 	err := r.DB.Find(&users).Error

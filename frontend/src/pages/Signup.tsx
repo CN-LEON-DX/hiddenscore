@@ -7,7 +7,7 @@ export default function Signup() {
     const handleGoogleSignUp = async () => {
         setIsLoading(true);
         try {
-            window.location.href = `${import.meta.env.VITE_API_URL}/auth/google/login`;
+            window.location.href = `${import.meta.env.VITE_API_URL}/auth/login`;
         } catch (error) {
             console.error("Google sign-up error:", error);
         } finally {
@@ -24,7 +24,7 @@ export default function Signup() {
                 <div className="sm:mx-auto sm:w-full sm:max-w-sm">
                     <a href="/">
                         <img
-                            alt="Your Company"
+                            alt="V diamon"
                             src="/logo.svg"
                             className="mx-auto h-10 w-auto"
                         />

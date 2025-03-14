@@ -7,4 +7,5 @@ type UserRepository interface {
 	FindUserByGoogleID(googleID string) (entity.User, error)
 	CreateUser(user entity.User) (entity.User, error)
 	GetUserByID(id uint) (entity.User, error)
+	FindByEmail(email string) (*entity.User, error)
 }

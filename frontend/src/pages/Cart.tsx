@@ -1,5 +1,6 @@
 import { Helmet } from 'react-helmet';
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 interface CartItem {
     id: string;
@@ -8,10 +9,16 @@ interface CartItem {
     quantity: number;
     image: string;
 }
+interface Cart {
+    id: string;
+    cartItems: CartItem[];
+    totalPrice: number;
+}
 
 const Cart = () => {
     const [cartItems, setCartItems] = useState<CartItem[]>([]);
     const [totalPrice, setTotalPrice] = useState<number>(0);
+    const navigate = useNavigate();
 
     useEffect(() => {
         const storedCartItems = JSON.parse(sessionStorage.getItem('cart') || '[]');
@@ -38,6 +45,10 @@ const Cart = () => {
         setCartItems(updatedCartItems);
         sessionStorage.setItem('cart', JSON.stringify(updatedCartItems));
         calculateTotalPrice(updatedCartItems);
+    };
+
+    const handleProceedToCheckout = () => {
+        navigate('/checkout');
     };
 
     return (
@@ -85,7 +96,10 @@ const Cart = () => {
                             <span className="text-gray-600">Subtotal</span>
                             <span className="text-gray-900">${totalPrice.toFixed(2)}</span>
                         </div>
-                        <button className="w-full mt-4 bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-500">
+                        <button
+                            onClick={handleProceedToCheckout}
+                            className="w-full mt-4 bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-500"
+                        >
                             Proceed to Checkout
                         </button>
                     </div>

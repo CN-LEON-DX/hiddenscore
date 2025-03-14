@@ -8,6 +8,7 @@ import DetailProduct from "./pages/DetailProduct.tsx"; // Make sure this file ex
 import Cart from './pages/Cart.tsx';
 import Header from "./components/Header.tsx";
 import Footer from "./components/Footer.tsx";
+import Checkout from "./pages/Checkout.tsx";
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
           <Route path="/products" element={<Products />} />
           <Route path="/products/detail/:productId" element={<DetailProduct />} />
           <Route path="/cart" element={<Cart />} />
+          <Route path="/checkout" element={<Checkout/>} />
           </Routes>
           <Footer/>
       </BrowserRouter>

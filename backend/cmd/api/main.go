@@ -27,11 +27,13 @@ func main() {
 	// repositories
 	userRepo := &repository.PostgresUserRepository{DB: db}
 	productRepo := &repository.ProductRepository{DB: db}
+	cartRepo := &repository.CartRepository{DB: db}
 
 	// handlers
 	userHandler := &handler.UserHandler{Repo: userRepo}
 	authHandler := handler.NewAuthHandler(userRepo)
 	productHandler := handler.NewProductHandler(productRepo)
+	cartHandler := handler.NewCartHandler(cartRepo, productRepo)
 
 	r := gin.Default()
 
@@ -46,10 +48,15 @@ func main() {
 	// Public routes
 	r.GET("/auth/google/login", authHandler.GoogleLogin)
 	r.GET("/auth/google/callback", authHandler.GoogleCallback)
+	// Register, login by gmail
+	r.POST("/auth/register", authHandler.RegisterWithGmail)
+	r.POST("/auth/login", authHandler.LoginWithGmail)
+
 	r.GET("/auth/logout", authHandler.Logout)
 	r.GET("/products", productHandler.GetProducts)
 	r.GET("/products/detail/:id", productHandler.GetProductByID)
 	r.POST("/products/search/", productHandler.SearchProducts)
+	r.POST("/cart/checkout", cartHandler.Checkout)
 
 	// Protected routes
 	auth := r.Group("/")

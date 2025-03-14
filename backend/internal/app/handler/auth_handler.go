@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"backend/internal/app/helper"
 	"backend/internal/domain/entity"
 	"backend/internal/domain/repository"
 	"encoding/json"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 
@@ -45,6 +47,97 @@ func NewAuthHandler(userRepo repository.UserRepository) *AuthHandler {
 	}
 }
 
+// hashPassword hashes the given password using bcrypt
+func hashPassword(password string) (string, error) {
+	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 14)
+	return string(bytes), err
+}
+
+// checkPasswordHash
+func checkPasswordHash(password, hash string) bool {
+	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
+	return err == nil
+}
+
+// sendConfirmationEmail sends a confirmation email to the user
+
+// RegisterWithGmail handles user registration with Gmail
+func (h *AuthHandler) RegisterWithGmail(c *gin.Context) {
+	var request struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+		Name     string `json:"name"`
+	}
+
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
+
+	user, err := h.UserRepo.FindByEmail(request.Email)
+	if user != nil {
+		c.JSON(http.StatusConflict, gin.H{"message": "User already exists"})
+		return
+	}
+
+	hashedPassword, err := hashPassword(request.Password)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash password"})
+		return
+	}
+
+	newUser := entity.User{
+		Email:    request.Email,
+		Password: hashedPassword,
+	}
+
+	if _, err := h.UserRepo.CreateUser(newUser); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
+		return
+	}
+
+	helper.SendNotification(newUser.Email, "Welcome to V diamond", "Thank you for registering!")
+
+	c.JSON(http.StatusOK, gin.H{"message": "Registration successful! Please check your email to confirm."})
+}
+
+// LoginWithGmail login with Gmail
+func (h *AuthHandler) LoginWithGmail(c *gin.Context) {
+	var request struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
+
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
+
+	user, err := h.UserRepo.FindByEmail(request.Email)
+	if err != nil || !checkPasswordHash(request.Password, user.Password) {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password"})
+		return
+	}
+
+	jwtToken, err := h.generateJWT(user)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
+		return
+	}
+
+	c.SetCookie(
+		"auth_token",
+		jwtToken,
+		3600*24, // 1 day
+		"/",
+		"",
+		false,
+		true,
+	)
+
+	c.JSON(http.StatusOK, gin.H{"message": "Login successful"})
+}
+
 // GoogleLogin initiates the Google OAuth2 login flow
 func (h *AuthHandler) GoogleLogin(c *gin.Context) {
 	url := h.OAuthConfig.AuthCodeURL("state", oauth2.AccessTypeOffline)
@@ -65,9 +158,9 @@ func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get user info: " + err.Error()})
 		return
 	}
-
+	var user entity.User
 	// Check if user exists, create if not
-	user, err := h.UserRepo.FindUserByGoogleID(userInfo.ID)
+	user, err = h.UserRepo.FindUserByGoogleID(userInfo.ID)
 	if err != nil {
 		// Create new user
 		newUser := entity.User{
@@ -85,7 +178,7 @@ func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 	}
 
 	// Generate JWT token
-	jwtToken, err := h.generateJWT(user)
+	jwtToken, err := h.generateJWT(&user)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token: " + err.Error()})
 		return
@@ -129,7 +222,7 @@ func (h *AuthHandler) getUserInfoFromGoogle(accessToken string) (*GoogleUserInfo
 }
 
 // generateJWT creates a JWT token for the user
-func (h *AuthHandler) generateJWT(user entity.User) (string, error) {
+func (h *AuthHandler) generateJWT(user *entity.User) (string, error) {
 	token := jwt.New(jwt.SigningMethodHS256)
 	claims := token.Claims.(jwt.MapClaims)
 

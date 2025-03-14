@@ -7,12 +7,12 @@ import (
 	"time"
 )
 
-type PostgresCartRepository struct {
+type CartRepository struct {
 	DB *gorm.DB
 }
 
 // FindActiveCartByUserID finds the active cart for a user
-func (r *PostgresCartRepository) FindActiveCartByUserID(userID uint) (*entity.Cart, error) {
+func (r *CartRepository) FindActiveCartByUserID(userID uint) (*entity.Cart, error) {
 	var cart entity.Cart
 	err := r.DB.Where("user_id = ? AND active = true", userID).First(&cart).Error
 	if err != nil {
@@ -33,7 +33,7 @@ func (r *PostgresCartRepository) FindActiveCartByUserID(userID uint) (*entity.Ca
 }
 
 // CreateCart creates a new cart for a user
-func (r *PostgresCartRepository) CreateCart(userID uint) (*entity.Cart, error) {
+func (r *CartRepository) CreateCart(userID uint) (*entity.Cart, error) {
 	cart := &entity.Cart{
 		UserID: userID,
 		Active: true,
@@ -48,7 +48,7 @@ func (r *PostgresCartRepository) CreateCart(userID uint) (*entity.Cart, error) {
 }
 
 // AddItem adds a product to a cart
-func (r *PostgresCartRepository) AddItem(cartID uint, productID uint, quantity int) error {
+func (r *CartRepository) AddItem(cartID uint, productID uint, quantity int) error {
 	var cartItem entity.CartItem
 	err := r.DB.Where("cart_id = ? AND product_id = ?", cartID, productID).First(&cartItem).Error
 
@@ -72,7 +72,7 @@ func (r *PostgresCartRepository) AddItem(cartID uint, productID uint, quantity i
 }
 
 // UpdateItemQuantity updates the quantity of a cart item
-func (r *PostgresCartRepository) UpdateItemQuantity(cartItemID uint, quantity int) error {
+func (r *CartRepository) UpdateItemQuantity(cartItemID uint, quantity int) error {
 	if quantity <= 0 {
 		return r.RemoveItem(cartItemID)
 	}
@@ -84,19 +84,19 @@ func (r *PostgresCartRepository) UpdateItemQuantity(cartItemID uint, quantity in
 }
 
 // RemoveItem removes an item from a cart
-func (r *PostgresCartRepository) RemoveItem(cartItemID uint) error {
+func (r *CartRepository) RemoveItem(cartItemID uint) error {
 	return r.DB.Delete(&entity.CartItem{}, cartItemID).Error
 }
 
 // GetCartItems gets all items in a cart
-func (r *PostgresCartRepository) GetCartItems(cartID uint) ([]entity.CartItem, error) {
+func (r *CartRepository) GetCartItems(cartID uint) ([]entity.CartItem, error) {
 	var items []entity.CartItem
 	err := r.DB.Preload("Product").Where("cart_id = ?", cartID).Find(&items).Error
 	return items, err
 }
 
 // CloseCart marks a cart as inactive (completed order)
-func (r *PostgresCartRepository) CloseCart(cartID uint) error {
+func (r *CartRepository) CloseCart(cartID uint) error {
 	return r.DB.Model(&entity.Cart{}).Where("id = ?", cartID).Updates(map[string]interface{}{
 		"active":     false,
 		"updated_at": time.Now(),

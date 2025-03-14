@@ -49,13 +49,13 @@ const ProductDetail = () => {
         if (!product) return;
 
         const cart: CartItem[] = JSON.parse(sessionStorage.getItem('cart') || '[]');
-        const existingItemIndex = cart.findIndex(item => item.id === product.id);
+        const existingItemIndex = cart.findIndex(item => item.id === productId);
 
         if (existingItemIndex !== -1) {
             cart[existingItemIndex].quantity += 1;
         } else {
             cart.push({
-                id: product.id,
+                id: productId,
                 name: product.name,
                 image: product.image_url,
                 price: parseFloat(product.price),
