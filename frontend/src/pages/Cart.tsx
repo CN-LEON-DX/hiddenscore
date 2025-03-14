@@ -1,30 +1,23 @@
-import Header from '../components/Header.tsx';
-import Footer from '../components/Footer.tsx';
 import { Helmet } from 'react-helmet';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface CartItem {
     id: string;
     name: string;
-    image: string;
     price: number;
     quantity: number;
+    image: string;
 }
 
 const Cart = () => {
     const [cartItems, setCartItems] = useState<CartItem[]>([]);
     const [totalPrice, setTotalPrice] = useState<number>(0);
 
-    // useEffect(() => {
-    //     // Fetch cart items from API or session
-    //     fetch('/api/cart')
-    //         .then(response => response.json())
-    //         .then(data => {
-    //             setCartItems(data.cartItems);
-    //             calculateTotalPrice(data.cartItems);
-    //         })
-    //         .catch(error => console.error('Error fetching cart items:', error));
-    // }, []);
+    useEffect(() => {
+        const storedCartItems = JSON.parse(sessionStorage.getItem('cart') || '[]');
+        setCartItems(storedCartItems);
+        calculateTotalPrice(storedCartItems);
+    }, []);
 
     const calculateTotalPrice = (items: CartItem[]) => {
         const total = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
@@ -32,16 +25,19 @@ const Cart = () => {
     };
 
     const handleRemoveItem = (itemId: string) => {
-        setCartItems(prevItems => prevItems.filter(item => item.id !== itemId));
+        const updatedCartItems = cartItems.filter(item => item.id !== itemId);
+        setCartItems(updatedCartItems);
+        sessionStorage.setItem('cart', JSON.stringify(updatedCartItems));
+        calculateTotalPrice(updatedCartItems);
     };
 
     const handleQuantityChange = (itemId: string, quantity: number) => {
-        setCartItems(prevItems =>
-            prevItems.map(item =>
-                item.id === itemId ? { ...item, quantity } : item
-            )
+        const updatedCartItems = cartItems.map(item =>
+            item.id === itemId ? { ...item, quantity } : item
         );
-        calculateTotalPrice(cartItems);
+        setCartItems(updatedCartItems);
+        sessionStorage.setItem('cart', JSON.stringify(updatedCartItems));
+        calculateTotalPrice(updatedCartItems);
     };
 
     return (
@@ -49,7 +45,6 @@ const Cart = () => {
             <Helmet>
                 <title>Shopping Cart - V Diamond</title>
             </Helmet>
-            <Header />
             <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
                 <h1 className="text-3xl font-bold text-gray-900 mb-6">Shopping Cart</h1>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -62,13 +57,13 @@ const Cart = () => {
                                         <h2 className="text-lg font-semibold text-gray-900">{item.name}</h2>
                                         <p className="text-gray-500">${item.price.toFixed(2)}</p>
                                         <div className="flex items-center mt-2">
-                                            <label htmlFor={`quantity-${item.id}`} className="mr-2 text-sm text-gray-600">Qty:</label>
+                                            <label htmlFor={`quantity-${item.id}`} className="mr-2 text-sm text-gray-600">Quantity:</label>
                                             <input
                                                 type="number"
                                                 id={`quantity-${item.id}`}
                                                 value={item.quantity}
                                                 onChange={(e) => handleQuantityChange(item.id, parseInt(e.target.value))}
-                                                className="w-16 border border-gray-300 rounded-md text-center"
+                                                className="w-16 border border-gray-300 rounded-md text-center dark:bg-gray-800 dark:text-white dark:border-gray-600"
                                             />
                                         </div>
                                     </div>
@@ -96,7 +91,6 @@ const Cart = () => {
                     </div>
                 </div>
             </div>
-            <Footer />
         </>
     );
 };

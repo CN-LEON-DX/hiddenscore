@@ -4,7 +4,13 @@ const Carousel = () => {
     const [currentIndex, setCurrentIndex] = useState(0);
 
     const images = [
-        "/1.png", "/2.png", "/3.png", "/4.png", "/5.png", "/6.png"
+        "https://hiddenscore.s3.ap-southeast-2.amazonaws.com/images/public/ls8.png",
+        "https://hiddenscore.s3.ap-southeast-2.amazonaws.com/images/public/ls7.png",
+        "https://hiddenscore.s3.ap-southeast-2.amazonaws.com/images/public/ls6.png",
+        "https://hiddenscore.s3.ap-southeast-2.amazonaws.com/images/public/ls6.png",
+        "https://hiddenscore.s3.ap-southeast-2.amazonaws.com/images/public/ls5.png",
+        "https://hiddenscore.s3.ap-southeast-2.amazonaws.com/images/public/ls4.png",
+
     ];
 
     useEffect(() => {

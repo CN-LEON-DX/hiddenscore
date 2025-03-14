@@ -26,7 +26,7 @@ func main() {
 
 	// repositories
 	userRepo := &repository.PostgresUserRepository{DB: db}
-	productRepo := &repository.PostgresProductRepository{DB: db}
+	productRepo := &repository.ProductRepository{DB: db}
 
 	// handlers
 	userHandler := &handler.UserHandler{Repo: userRepo}
@@ -49,6 +49,7 @@ func main() {
 	r.GET("/auth/logout", authHandler.Logout)
 	r.GET("/products", productHandler.GetProducts)
 	r.GET("/products/detail/:id", productHandler.GetProductByID)
+	r.POST("/products/search/", productHandler.SearchProducts)
 
 	// Protected routes
 	auth := r.Group("/")

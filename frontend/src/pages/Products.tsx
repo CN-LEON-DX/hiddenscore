@@ -1,13 +1,11 @@
 import { Helmet } from 'react-helmet';
 import { Link } from 'react-router-dom';
-import Header from '../components/Header';
 import TopProduct from '../components/TopProduct';
 import DiamondSearchFilter from '../components/Search';
 import {SetStateAction, useState } from 'react';
 import Carousel from '../components/Carousel';
 import ListProduct from '../components/ListProduct';
 import PaginationTemp from '../components/PaginationTemp';
-import Footer from '../components/Footer';
 
 const diamondCollection = [
     { name: 'The Blue Hope Diamond', description: 'A rare blue diamond with a rich history and exceptional beauty.' },
@@ -29,7 +27,6 @@ export default function Products() {
             <Helmet>
                 <title>Products</title>
             </Helmet>
-            <Header />
             <TopProduct />
             <DiamondSearchFilter onSearch={() => {}} />
             <div>
@@ -52,10 +49,10 @@ export default function Products() {
                         </dl>
                     </div>
                     <div className="grid grid-cols-2 grid-rows-2 gap-4 sm:gap-6 lg:gap-8">
-                        <img alt="The Blue Hope Diamond" src="/1.png" className="rounded-lg bg-gray-100" />
-                        <img alt="The Pink Star Diamond" src="/2.png" className="rounded-lg bg-gray-100" />
-                        <img alt="The Cullinan Diamond" src="/3.png" className="rounded-lg bg-gray-100" />
-                        <img alt="The Koh-i-Noor Diamond" src="/4.png" className="rounded-lg bg-gray-100" />
+                        <img alt="The Blue Hope Diamond" src="https://hiddenscore.s3.ap-southeast-2.amazonaws.com/images/public/ls8.png" className="rounded-lg bg-gray-100" />
+                        <img alt="The Pink Star Diamond" src="https://hiddenscore.s3.ap-southeast-2.amazonaws.com/images/public/ls5.png" className="rounded-lg bg-gray-100" />
+                        <img alt="The Cullinan Diamond" src="https://hiddenscore.s3.ap-southeast-2.amazonaws.com/images/public/ls2.png" className="rounded-lg bg-gray-100" />
+                        <img alt="The Koh-i-Noor Diamond" src="https://hiddenscore.s3.ap-southeast-2.amazonaws.com/images/public/ls1.png" className="rounded-lg bg-gray-100" />
                     </div>
                 </div>
             </div>
@@ -64,7 +61,6 @@ export default function Products() {
             </div>
             <ListProduct />
             <PaginationTemp totalPages={10} currentPage={currentPage} step={1} onPageChange={handlePageChange} />
-            <Footer />
         </>
     );
 }

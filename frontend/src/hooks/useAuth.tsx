@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 
-// Define user interface based on your API response
 interface User {
   ID: number;
   CreatedAt: string;
@@ -12,32 +11,39 @@ interface User {
   name: string;
   picture: string | null;
 }
+
 const API_URL = import.meta.env.VITE_REACT_APP_API_URL;
 
 const useAuth = () => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<User | null>(() => {
+    const storedUser = sessionStorage.getItem('user');
+    return storedUser ? JSON.parse(storedUser) : null;
+  });
 
   useEffect(() => {
-    axios.get(API_URL+`/me`, {
-      withCredentials: true 
-    })
-    .then(response => {
-      setUser(response.data);
-    })
-    .catch(error => {
-      console.error("Error in useAuth:", error);
-    });
-  }, []);
-
+    if (!user) {
+      axios.get(API_URL + `/me`, {
+        withCredentials: true
+      })
+          .then(response => {
+            setUser(response.data);
+            sessionStorage.setItem('user', JSON.stringify(response.data));
+          })
+          .catch(error => {
+            console.error("Error in useAuth:", error);
+          });
+    }
+  }, [user]);
 
   const logout = () => {
     axios.get(API_URL + '/auth/logout', {
       withCredentials: true
     })
-    .then(() => {
-      setUser(null);
-      window.location.href = '/'; 
-    });
+        .then(() => {
+          setUser(null);
+          sessionStorage.removeItem('user');
+          window.location.href = '/';
+        });
   };
 
   return { user, logout };

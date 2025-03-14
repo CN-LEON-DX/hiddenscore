@@ -3,6 +3,7 @@ package handler
 import (
 	"backend/internal/domain/entity"
 	"backend/internal/domain/repository"
+	"backend/internal/infras/interfaces"
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"strconv"
@@ -44,4 +45,22 @@ func (p *ProductHandler) GetProductByID(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, product)
+}
+
+func (h *ProductHandler) SearchProducts(c *gin.Context) {
+	name := c.Query("name")
+	minPrice, _ := strconv.ParseFloat(c.Query("min_price"), 64)
+	maxPrice, _ := strconv.ParseFloat(c.Query("max_price"), 64)
+
+	filter := interfaces.ProductFilter{
+		Name:     name,
+		MinPrice: minPrice,
+		MaxPrice: maxPrice,
+	}
+	var products []entity.Product
+	if err := h.Repo.SearchProducts(&products, filter); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, products)
 }

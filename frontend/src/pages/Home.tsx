@@ -1,6 +1,4 @@
-import Header from "../components/Header.tsx";
 import videoSource from "../assets/diamon.mp4";
-import Footer from "../components/Footer.tsx";
 import { Helmet } from 'react-helmet';
 
 const Home = () => {
@@ -10,7 +8,7 @@ const Home = () => {
                 <title>Home - V Diamond</title>
             </Helmet>
             <div>
-                <Header />
+
             </div>
                 <div className="relative h-screen w-full overflow-hidden">
                     {/* Video Background */}
@@ -47,7 +45,6 @@ const Home = () => {
                         </div>
                     </div>
                 </div>
-            <Footer/>
         </>
 
     );

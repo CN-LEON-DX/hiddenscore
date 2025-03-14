@@ -6,18 +6,22 @@ import Signup from "./pages/Signup.tsx";
 import Products from "./pages/Products.tsx";
 import DetailProduct from "./pages/DetailProduct.tsx"; // Make sure this file exists
 import Cart from './pages/Cart.tsx';
+import Header from "./components/Header.tsx";
+import Footer from "./components/Footer.tsx";
 
 function App() {
   return (
       <BrowserRouter>
+          <Header/>
           <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/products" element={<Products />} />
-          <Route path="/products/:productId" element={<DetailProduct />} />
+          <Route path="/products/detail/:productId" element={<DetailProduct />} />
           <Route path="/cart" element={<Cart />} />
           </Routes>
+          <Footer/>
       </BrowserRouter>
   )
 }

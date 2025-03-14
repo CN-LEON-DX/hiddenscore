@@ -29,7 +29,6 @@ export default function ListProduct() {
     const handleProductClick = (productId: number) => {
         navigate(`/products/detail/${productId}`);
     };
-    console.log(products);
 
     return (
         <div>
@@ -47,7 +46,7 @@ export default function ListProduct() {
                             <div className="mt-4 flex justify-between">
                                 <div>
                                     <h3 className="text-sm text-gray-700">
-                                        <a href="#" onClick={() => handleProductClick(product.ID)}>
+                                        <a href="" onClick={() => handleProductClick(product.ID)}>
                                             <span aria-hidden="true" className="absolute inset-0" />
                                             {product.name}
                                         </a>
