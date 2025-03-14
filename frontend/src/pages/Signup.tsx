@@ -1,15 +1,158 @@
 import { useState } from "react";
 import { Helmet } from 'react-helmet';
+import { useNavigate } from 'react-router-dom';
+import React from 'react';
+import api from '../utils/api';
+import axios, { AxiosError } from 'axios';
+
+type FormData = {
+    name: string;
+    email: string;
+    password: string;
+    confirmPassword: string;
+}
+
+type FormErrors = {
+    name: string;
+    email: string;
+    password: string;
+    confirmPassword: string;
+    general: string;
+}
 
 export default function Signup() {
+    const navigate = useNavigate();
     const [isLoading, setIsLoading] = useState(false);
+    const [formData, setFormData] = useState<FormData>({
+        name: '',
+        email: '',
+        password: '',
+        confirmPassword: ''
+    });
+    const [errors, setErrors] = useState<FormErrors>({
+        name: '',
+        email: '',
+        password: '',
+        confirmPassword: '',
+        general: ''
+    });
+    const [successMessage, setSuccessMessage] = useState('');
 
     const handleGoogleSignUp = async () => {
         setIsLoading(true);
         try {
-            window.location.href = `${import.meta.env.VITE_API_URL}/auth/login`;
+            // Use the /api prefix for all requests
+            window.location.href = `/api/auth/google/login`;
         } catch (error) {
             console.error("Google sign-up error:", error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const { name, value } = e.target;
+        setFormData({
+            ...formData,
+            [name]: value
+        });
+        // Clear error when user types
+        if (errors[name as keyof FormErrors]) {
+            setErrors({
+                ...errors,
+                [name]: ''
+            });
+        }
+    };
+
+    const validateForm = () => {
+        let isValid = true;
+        const newErrors = { ...errors };
+
+        // Validate name
+        if (!formData.name.trim()) {
+            newErrors.name = 'Name is required';
+            isValid = false;
+        }
+
+        // Validate email
+        if (!formData.email.trim()) {
+            newErrors.email = 'Email is required';
+            isValid = false;
+        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+            newErrors.email = 'Please enter a valid email address';
+            isValid = false;
+        } else if (!formData.email.endsWith('@gmail.com')) {
+            newErrors.email = 'Please enter a Gmail address';
+            isValid = false;
+        }
+
+        // Validate password
+        if (!formData.password) {
+            newErrors.password = 'Password is required';
+            isValid = false;
+        } else if (formData.password.length < 6) {
+            newErrors.password = 'Password must be at least 6 characters';
+            isValid = false;
+        }
+
+        // Validate confirm password
+        if (!formData.confirmPassword) {
+            newErrors.confirmPassword = 'Please confirm your password';
+            isValid = false;
+        } else if (formData.password !== formData.confirmPassword) {
+            newErrors.confirmPassword = 'Passwords do not match';
+            isValid = false;
+        }
+
+        setErrors(newErrors);
+        return isValid;
+    };
+
+    const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        setIsLoading(true);
+        
+        // Reset errors
+        setErrors({
+            name: '',
+            email: '',
+            password: '',
+            confirmPassword: '',
+            general: ''
+        });
+        
+        // Validate form
+        if (!validateForm()) {
+            setIsLoading(false);
+            return;
+        }
+        
+        try {
+            const response = await api.post('/auth/register', {
+                name: formData.name,
+                email: formData.email,
+                password: formData.password
+            });
+            
+            setSuccessMessage(response.data.message);
+            
+            // Reset form after successful submission
+            setFormData({
+                name: '',
+                email: '',
+                password: '',
+                confirmPassword: ''
+            });
+        } catch (error) {
+            const axiosError = error as AxiosError<any>;
+            
+            if (axiosError.response?.data?.error) {
+                setErrors({ ...errors, general: axiosError.response.data.error });
+            } else {
+                setErrors({ ...errors, general: 'An unexpected error occurred. Please try again.' });
+            }
+            console.error('Error during registration:', error);
         } finally {
             setIsLoading(false);
         }
@@ -35,7 +178,19 @@ export default function Signup() {
                 </div>
 
                 <div className="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
-                    <form action="#" method="POST" className="space-y-6">
+                    {successMessage && (
+                        <div className="mb-4 p-3 bg-green-100 text-green-700 rounded-md">
+                            {successMessage}
+                        </div>
+                    )}
+                    
+                    {errors.general && (
+                        <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-md">
+                            {errors.general}
+                        </div>
+                    )}
+
+                    <form onSubmit={handleSubmit} className="space-y-6">
                         <div>
                             <label htmlFor="name" className="block text-sm/6 font-medium text-gray-900">
                                 Full name
@@ -45,10 +200,13 @@ export default function Signup() {
                                     id="name"
                                     name="name"
                                     type="text"
+                                    value={formData.name}
+                                    onChange={handleInputChange}
                                     required
                                     autoComplete="name"
-                                    className="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6"
+                                    className={`block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 ${errors.name ? 'outline-red-500' : 'outline-gray-300'} placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6`}
                                 />
+                                {errors.name && <p className="mt-1 text-sm text-red-500">{errors.name}</p>}
                             </div>
                         </div>
 
@@ -61,10 +219,13 @@ export default function Signup() {
                                     id="email"
                                     name="email"
                                     type="email"
+                                    value={formData.email}
+                                    onChange={handleInputChange}
                                     required
                                     autoComplete="email"
-                                    className="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6"
+                                    className={`block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 ${errors.email ? 'outline-red-500' : 'outline-gray-300'} placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6`}
                                 />
+                                {errors.email && <p className="mt-1 text-sm text-red-500">{errors.email}</p>}
                             </div>
                         </div>
 
@@ -77,10 +238,13 @@ export default function Signup() {
                                     id="password"
                                     name="password"
                                     type="password"
+                                    value={formData.password}
+                                    onChange={handleInputChange}
                                     required
                                     autoComplete="new-password"
-                                    className="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6"
+                                    className={`block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 ${errors.password ? 'outline-red-500' : 'outline-gray-300'} placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6`}
                                 />
+                                {errors.password && <p className="mt-1 text-sm text-red-500">{errors.password}</p>}
                             </div>
                         </div>
 
@@ -93,19 +257,23 @@ export default function Signup() {
                                     id="confirmPassword"
                                     name="confirmPassword"
                                     type="password"
+                                    value={formData.confirmPassword}
+                                    onChange={handleInputChange}
                                     required
                                     autoComplete="new-password"
-                                    className="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6"
+                                    className={`block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 ${errors.confirmPassword ? 'outline-red-500' : 'outline-gray-300'} placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6`}
                                 />
+                                {errors.confirmPassword && <p className="mt-1 text-sm text-red-500">{errors.confirmPassword}</p>}
                             </div>
                         </div>
 
                         <div>
                             <button
                                 type="submit"
-                                className="flex w-full justify-center rounded-md bg-indigo-600 px-3 py-1.5 text-sm/6 font-semibold text-white shadow-xs hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+                                disabled={isLoading}
+                                className="flex w-full justify-center rounded-md bg-indigo-600 px-3 py-1.5 text-sm/6 font-semibold text-white shadow-xs hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:opacity-50"
                             >
-                                Sign up
+                                {isLoading ? 'Signing up...' : 'Sign up'}
                             </button>
                         </div>
                     </form>
@@ -124,7 +292,7 @@ export default function Signup() {
                             <button
                                 onClick={handleGoogleSignUp}
                                 disabled={isLoading}
-                                className="flex w-full items-center justify-center gap-3 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+                                className="flex w-full items-center justify-center gap-3 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 disabled:opacity-50"
                             >
                                 <svg className="h-5 w-5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                     <path

@@ -4,11 +4,12 @@ import (
 	"backend/internal/domain/entity"
 	"backend/internal/infras/database"
 	"encoding/json"
+	"net/http"
+	"os"
+
 	"github.com/gin-gonic/gin"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
-	"net/http"
-	"os"
 )
 
 var googleOauthConfig = &oauth2.Config{
@@ -63,37 +64,22 @@ func GoogleCallback(c *gin.Context) {
 
 	// Check if user exists
 	var user entity.User
-	err = db.QueryRow("SELECT id, google_id, email, name, picture FROM users WHERE google_id = $1", googleUser.ID).
-		Scan(&user.ID, &user.GoogleID, &user.Email, &user.Name, &user.Picture)
-
-	if err != nil {
+	if err := db.Where("google_id = ?", googleUser.ID).First(&user).Error; err != nil {
 		// User doesn't exist, create new one
-		result, err := db.Exec(
-			"INSERT INTO users (google_id, email, name, picture) VALUES ($1, $2, $3, $4) RETURNING id",
-			googleUser.ID, googleUser.Email, googleUser.Name, googleUser.Picture,
-		)
+		googleID := googleUser.ID // Create a variable to hold the ID
+		user = entity.User{
+			GoogleID: &googleID, // Use address operator to get a pointer
+			Email:    googleUser.Email,
+			Name:     googleUser.Name,
+			Picture:  googleUser.Picture,
+			Status:   "active",
+		}
+
+		err = db.Create(&user).Error
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
 			return
 		}
-
-		// Get the ID of the newly inserted user
-		userID, err := result.LastInsertId()
-		if err != nil {
-			// For PostgreSQL which doesn't support LastInsertId()
-			err = db.QueryRow("SELECT id FROM users WHERE google_id = $1", googleUser.ID).Scan(&user.ID)
-			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get user ID"})
-				return
-			}
-		} else {
-			user.ID = uint(int(userID))
-		}
-
-		user.GoogleID = googleUser.ID
-		user.Email = googleUser.Email
-		user.Name = googleUser.Name
-		user.Picture = googleUser.Picture
 	}
 
 	// Generate JWT token

@@ -12,8 +12,6 @@ interface User {
   picture: string | null;
 }
 
-const API_URL = import.meta.env.VITE_REACT_APP_API_URL;
-
 const useAuth = () => {
   const [user, setUser] = useState<User | null>(() => {
     const storedUser = sessionStorage.getItem('user');
@@ -22,28 +20,35 @@ const useAuth = () => {
 
   useEffect(() => {
     if (!user) {
-      axios.get(API_URL + `/me`, {
+      axios.get('/api/me', {
         withCredentials: true
       })
-          .then(response => {
-            setUser(response.data);
-            sessionStorage.setItem('user', JSON.stringify(response.data));
-          })
-          .catch(error => {
+        .then(response => {
+          setUser(response.data);
+          sessionStorage.setItem('user', JSON.stringify(response.data));
+        })
+        .catch(error => {
+          if (error.response && error.response.status === 401) {
+            // Remove console.log for user not authenticated
+          } else {
             console.error("Error in useAuth:", error);
-          });
+          }
+        });
     }
   }, [user]);
 
   const logout = () => {
-    axios.get(API_URL + '/auth/logout', {
+    axios.get('/api/auth/logout', {
       withCredentials: true
     })
-        .then(() => {
-          setUser(null);
-          sessionStorage.removeItem('user');
-          window.location.href = '/';
-        });
+      .then(() => {
+        setUser(null);
+        sessionStorage.removeItem('user');
+        window.location.href = '/';
+      })
+      .catch(error => {
+        console.error("Error logging out:", error);
+      });
   };
 
   return { user, logout };

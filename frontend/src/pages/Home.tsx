@@ -1,5 +1,6 @@
 import videoSource from "../assets/diamon.mp4";
 import { Helmet } from 'react-helmet';
+import ListProduct from "../components/ListProduct";
 
 const Home = () => {
     return (
@@ -45,8 +46,12 @@ const Home = () => {
                         </div>
                     </div>
                 </div>
+                
+                {/* Featured Products Section */}
+                <div className="mt-8">
+                    <ListProduct />
+                </div>
         </>
-
     );
 }
 

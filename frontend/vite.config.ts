@@ -7,8 +7,13 @@ export default defineConfig({
   server: {
     port: 3000,
     host: true,
-    // proxy: {
-    //   '/api': 'http://localhost:8081'
-    // }
+    proxy: {
+      // Single catch-all proxy for the backend
+      '/api': {
+        target: 'http://localhost:8081',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, '')
+      }
+    }
   }
 })

@@ -1,15 +1,127 @@
 import { useState } from "react";
 import { Helmet } from 'react-helmet';
+import { useNavigate } from 'react-router-dom';
+import React from 'react';
+import api from '../utils/api';
+import axios, { AxiosError } from 'axios';
+import useAuth from '../hooks/useAuth';
+
+type FormData = {
+    email: string;
+    password: string;
+}
+
+type FormErrors = {
+    email: string;
+    password: string;
+    general: string;
+}
 
 export default function Login() {
+    const navigate = useNavigate();
+    const { user } = useAuth();
     const [isLoading, setIsLoading] = useState(false);
+    const [formData, setFormData] = useState<FormData>({
+        email: '',
+        password: ''
+    });
+    const [errors, setErrors] = useState<FormErrors>({
+        email: '',
+        password: '',
+        general: ''
+    });
 
     const handleGoogleSignIn = async () => {
         setIsLoading(true);
         try {
-            window.location.href = import.meta.env.VITE_REACT_APP_API_URL + `/auth/google/login`;
+            // Use the /api prefix for all requests
+            window.location.href = `/api/auth/google/login`;
         } catch (error) {
             console.error("Google sign-in error:", error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const { name, value } = e.target;
+        setFormData({
+            ...formData,
+            [name]: value
+        });
+        // Clear error when user types
+        if (errors[name as keyof FormErrors]) {
+            setErrors({
+                ...errors,
+                [name]: ''
+            });
+        }
+    };
+
+    const validateForm = () => {
+        let isValid = true;
+        const newErrors = { ...errors };
+
+        // Validate email
+        if (!formData.email.trim()) {
+            newErrors.email = 'Email is required';
+            isValid = false;
+        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+            newErrors.email = 'Please enter a valid email address';
+            isValid = false;
+        }
+
+        // Validate password
+        if (!formData.password) {
+            newErrors.password = 'Password is required';
+            isValid = false;
+        }
+
+        setErrors(newErrors);
+        return isValid;
+    };
+
+    const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        setIsLoading(true);
+        
+        // Reset errors
+        setErrors({
+            email: '',
+            password: '',
+            general: ''
+        });
+        
+        // Validate form
+        if (!validateForm()) {
+            setIsLoading(false);
+            return;
+        }
+        
+        try {
+            const loginResponse = await api.post('/auth/login', {
+                email: formData.email,
+                password: formData.password
+            });
+            
+            // Successful login - the useAuth hook will handle updating the user state
+            // via the /api/me endpoint that gets called after a successful login
+            
+            // Redirect to home page
+            navigate('/');
+        } catch (error) {
+            if (axios.isAxiosError(error) && error.response) {
+                setErrors({
+                    ...errors,
+                    general: error.response.data?.error || 'Login failed. Please try again.'
+                });
+            } else {
+                setErrors({
+                    ...errors,
+                    general: 'An unexpected error occurred. Please try again.'
+                });
+            }
+            console.error('Error during login:', error);
         } finally {
             setIsLoading(false);
         }
@@ -35,7 +147,13 @@ export default function Login() {
                 </div>
 
                 <div className="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
-                    <form action="#" method="POST" className="space-y-6">
+                    {errors.general && (
+                        <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-md">
+                            {errors.general}
+                        </div>
+                    )}
+
+                    <form onSubmit={handleSubmit} className="space-y-6">
                         <div>
                             <label htmlFor="email" className="block text-sm/6 font-medium text-gray-900">
                                 Email address
@@ -45,10 +163,13 @@ export default function Login() {
                                     id="email"
                                     name="email"
                                     type="email"
+                                    value={formData.email}
+                                    onChange={handleInputChange}
                                     required
                                     autoComplete="email"
-                                    className="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6"
+                                    className={`block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 ${errors.email ? 'outline-red-500' : 'outline-gray-300'} placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6`}
                                 />
+                                {errors.email && <p className="mt-1 text-sm text-red-500">{errors.email}</p>}
                             </div>
                         </div>
 
@@ -68,19 +189,23 @@ export default function Login() {
                                     id="password"
                                     name="password"
                                     type="password"
+                                    value={formData.password}
+                                    onChange={handleInputChange}
                                     required
                                     autoComplete="current-password"
-                                    className="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6"
+                                    className={`block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 ${errors.password ? 'outline-red-500' : 'outline-gray-300'} placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6`}
                                 />
+                                {errors.password && <p className="mt-1 text-sm text-red-500">{errors.password}</p>}
                             </div>
                         </div>
 
                         <div>
                             <button
                                 type="submit"
-                                className="flex w-full justify-center rounded-md bg-indigo-600 px-3 py-1.5 text-sm/6 font-semibold text-white shadow-xs hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+                                disabled={isLoading}
+                                className="flex w-full justify-center rounded-md bg-indigo-600 px-3 py-1.5 text-sm/6 font-semibold text-white shadow-xs hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:opacity-50"
                             >
-                                Sign in
+                                {isLoading ? 'Signing in...' : 'Sign in'}
                             </button>
                         </div>
                     </form>
@@ -99,7 +224,7 @@ export default function Login() {
                             <button
                                 onClick={handleGoogleSignIn}
                                 disabled={isLoading}
-                                className="flex w-full items-center justify-center gap-3 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+                                className="flex w-full items-center justify-center gap-3 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 disabled:opacity-50"
                             >
                                 <svg className="h-5 w-5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                     <path
@@ -121,15 +246,9 @@ export default function Login() {
                     </div>
 
                     <p className="mt-10 text-center text-sm/6 text-gray-500">
-                        Start with?{' '}
+                        New to our platform?{' '}
                         <a href="/signup" className="font-semibold text-indigo-600 hover:text-indigo-500">
                             Sign up
-                        </a>
-                    </p>
-                    <p className="mt-10 text-center text-sm/6 text-gray-500">
-                        Not a member?{' '}
-                        <a href="#" className="font-semibold text-indigo-600 hover:text-indigo-500">
-                            Start a 14 day free trial
                         </a>
                     </p>
                 </div>

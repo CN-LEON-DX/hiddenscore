@@ -238,35 +238,36 @@ func (h *CartHandler) ClearCart(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Cart cleared"})
 }
 
-func Checkout(c *gin.Context) {
-	//// Get user ID from context
-	//userID, exists := c.Get("userID")
-	//if !exists {
-	//	c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
-	//	return
-	//}
+// Checkout processes the checkout of the current cart
+func (h *CartHandler) Checkout(c *gin.Context) {
+	// Get user ID from context
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
 
-	//// Convert interface{} to uint
-	//userIDUint := uint(userID.(float64))
-	//
-	//// Get active cart
-	//cart, err := h.CartRepo.FindActiveCartByUserID(userIDUint)
-	//if err != nil {
-	//	c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-	//	return
-	//}
-	//
-	//if cart == nil {
-	//	c.JSON(http.StatusBadRequest, gin.H{"error": "No active cart"})
-	//	return
-	//}
-	//
-	//// Close the cart
-	//err = h.CartRepo.CloseCart(cart.ID)
-	//if err != nil {
-	//	c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-	//	return
-	//}
-	//
-	//c.JSON(http.StatusOK, gin.H{"message": "Cart closed"})
+	// Convert interface{} to uint
+	userIDUint := uint(userID.(float64))
+
+	// Get active cart
+	cart, err := h.CartRepo.FindActiveCartByUserID(userIDUint)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	if cart == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "No active cart"})
+		return
+	}
+
+	// Close the cart
+	err = h.CartRepo.CloseCart(cart.ID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Checkout successful"})
 }

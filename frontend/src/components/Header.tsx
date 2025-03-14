@@ -40,7 +40,7 @@ const Header = () => {
     const { user, logout } = useAuth();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [cartItemCount, setCartItemCount] = useState(0);
-    const defaultImage = '/user.png';
+    const defaultImage = '/logo.svg';
 
     const profileMenuItems = [
         { name: 'Profile', href: '/profile', icon: UserIcon },
@@ -51,9 +51,23 @@ const Header = () => {
 
     useEffect(() => {
         fetch('/api/cart')
-            .then(response => response.json())
-            .then(data => setCartItemCount(data.cartItems.length))
-            .catch(error => console.error('Error fetching cart items:', error));
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data && data.cartItems && Array.isArray(data.cartItems)) {
+                    setCartItemCount(data.cartItems.length);
+                } else {
+                    setCartItemCount(0);
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching cart items:', error);
+                setCartItemCount(0);
+            });
     }, []);
 
     return (
