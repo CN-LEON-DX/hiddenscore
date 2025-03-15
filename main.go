@@ -24,8 +24,8 @@ func main() {
 	// Initialize router
 	mux := http.NewServeMux()
 
-	// Serve static files from frontend/build
-	frontendDir := "./frontend/build"
+	// Serve static files from frontend/dist
+	frontendDir := "./frontend/dist"
 
 	// API endpoint to get port (for debugging)
 	mux.HandleFunc("/api", func(w http.ResponseWriter, r *http.Request) {
