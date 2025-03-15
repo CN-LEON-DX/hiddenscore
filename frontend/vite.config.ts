@@ -28,13 +28,7 @@ export default defineConfig({
       transformMixedEsModules: true,
     },
     rollupOptions: {
-      external: ['@stripe/stripe-js', '@stripe/react-stripe-js'],
-      output: {
-        globals: {
-          '@stripe/stripe-js': 'Stripe',
-          '@stripe/react-stripe-js': 'ReactStripe'
-        }
-      }
+      // Including all dependencies in the bundle
     }
   },
 })

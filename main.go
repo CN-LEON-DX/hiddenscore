@@ -33,35 +33,45 @@ func main() {
 		fmt.Fprintf(w, `{"status":"ok","port":"%s"}`, port)
 	})
 
-	// Serve static files for the frontend
+	// Logging middleware to debug requests
+	logMiddleware := func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			log.Printf("Incoming request: %s %s", r.Method, r.URL.Path)
+			next.ServeHTTP(w, r)
+		})
+	}
+
+	// Serve static files for the frontend using a stripped prefix
 	fileServer := http.FileServer(http.Dir(frontendDir))
-	mux.Handle("/assets/", fileServer)
-	mux.Handle("/static/", fileServer)
-	mux.Handle("/css/", fileServer)
-	mux.Handle("/js/", fileServer)
+	mux.Handle("/assets/", http.StripPrefix("/", fileServer))
+	mux.Handle("/static/", http.StripPrefix("/", fileServer))
+	mux.Handle("/css/", http.StripPrefix("/", fileServer))
+	mux.Handle("/js/", http.StripPrefix("/", fileServer))
 
-	// Also serve files at the root level of dist
+	// Handle root and any other path
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		// First try to serve as a static file from dist directory
+		// Direct file path check
 		path := filepath.Join(frontendDir, r.URL.Path)
-
-		// Check if file exists at the path
 		_, err := os.Stat(path)
-		if err == nil {
-			http.FileServer(http.Dir(frontendDir)).ServeHTTP(w, r)
+
+		if err == nil && !strings.HasSuffix(path, "/") {
+			// If file exists, serve it directly
+			http.ServeFile(w, r, path)
 			return
 		}
 
-		// If not a static file and not an API route, serve index.html
+		// For any path that doesn't match a file, serve index.html
+		// This enables client-side routing (SPA)
 		if !strings.HasPrefix(r.URL.Path, "/api") {
 			indexPath := filepath.Join(frontendDir, "index.html")
+			log.Printf("Serving index.html for path: %s", r.URL.Path)
 			http.ServeFile(w, r, indexPath)
 		} else {
 			http.NotFound(w, r)
 		}
 	})
 
-	// Start the server
+	// Start the server with logging middleware
 	log.Printf("Server listening on port %s", port)
-	log.Fatal(http.ListenAndServe(":"+port, mux))
+	log.Fatal(http.ListenAndServe(":"+port, logMiddleware(mux)))
 }
