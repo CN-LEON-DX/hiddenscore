@@ -47,7 +47,7 @@ jobs:
     - name: Build Backend
       run: |
         cd backend
-        go build -o main
+        go build -o main ./cmd/api
 
     - name: Deploy to Heroku
       uses: akhileshns/heroku-deploy@v3.12.14
