@@ -29,7 +29,6 @@ const useAuth = () => {
         })
         .catch(error => {
           if (error.response && error.response.status === 401) {
-            // Remove console.log for user not authenticated
           } else {
             console.error("Error in useAuth:", error);
           }
