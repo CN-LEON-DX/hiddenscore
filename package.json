@@ -2,7 +2,7 @@
   "name": "hiddenscore",
   "version": "1.0.0",
   "scripts": {
-    "postinstall": "cd frontend && npm install --production=false && npm run build",
+    "postinstall": "cd frontend && npm install --production=false --legacy-peer-deps && npm run build",
     "start": "go run main.go"
   },
   "engines": {
