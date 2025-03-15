@@ -1,0 +1,7 @@
+build:
+  languages:
+    go: 
+      packages: 
+        - ./backend
+run:
+  web: cd backend && ./main 

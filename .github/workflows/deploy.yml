@@ -63,8 +63,7 @@ jobs:
         heroku auth:token
         heroku apps:info hiddenscore || heroku create hiddenscore
         heroku buildpacks:clear -a hiddenscore
-        heroku buildpacks:add heroku/nodejs -a hiddenscore
-        heroku buildpacks:add heroku/go -a hiddenscore
+        heroku buildpacks:set heroku/go -a hiddenscore
       env:
         HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
 
