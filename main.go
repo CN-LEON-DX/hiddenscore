@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"mime"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -18,6 +19,27 @@ func main() {
 	if port == "" {
 		port = "8080"
 	}
+
+	// Đăng ký MIME types cho các loại file khác nhau
+	mime.AddExtensionType(".js", "application/javascript")
+	mime.AddExtensionType(".mjs", "application/javascript")
+	mime.AddExtensionType(".jsx", "application/javascript")
+	mime.AddExtensionType(".ts", "application/javascript")
+	mime.AddExtensionType(".tsx", "application/javascript")
+	mime.AddExtensionType(".css", "text/css")
+	mime.AddExtensionType(".json", "application/json")
+	mime.AddExtensionType(".html", "text/html")
+	mime.AddExtensionType(".svg", "image/svg+xml")
+	mime.AddExtensionType(".png", "image/png")
+	mime.AddExtensionType(".jpg", "image/jpeg")
+	mime.AddExtensionType(".jpeg", "image/jpeg")
+	mime.AddExtensionType(".gif", "image/gif")
+	mime.AddExtensionType(".ico", "image/x-icon")
+	mime.AddExtensionType(".woff", "font/woff")
+	mime.AddExtensionType(".woff2", "font/woff2")
+	mime.AddExtensionType(".ttf", "font/ttf")
+	mime.AddExtensionType(".otf", "font/otf")
+	mime.AddExtensionType(".eot", "application/vnd.ms-fontobject")
 
 	// Print current working directory and list files for debugging
 	cwd, _ := os.Getwd()
@@ -75,6 +97,20 @@ func main() {
 		return
 	})
 
+	// Create custom file server with MIME type handling
+	fileServerWithMime := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path := filepath.Join(frontendDir, r.URL.Path)
+
+		// Determine Content-Type based on file extension
+		ext := filepath.Ext(path)
+		mimeType := mime.TypeByExtension(ext)
+		if mimeType != "" {
+			w.Header().Set("Content-Type", mimeType)
+		}
+
+		http.FileServer(http.Dir(frontendDir)).ServeHTTP(w, r)
+	})
+
 	// Create simple middleware for logging requests
 	logMiddleware := func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -83,13 +119,13 @@ func main() {
 		})
 	}
 
-	// Serve static files properly
-	fileServer := http.FileServer(http.Dir(frontendDir))
-	mux.Handle("/assets/", fileServer)
-	mux.Handle("/static/", fileServer)
-	mux.Handle("/src/", fileServer) // Thêm đường dẫn src để phục vụ các file React
-	mux.Handle("/public/", fileServer)
-	mux.Handle("/node_modules/", fileServer)
+	// Serve static files with MIME handling
+	mux.Handle("/assets/", fileServerWithMime)
+	mux.Handle("/static/", fileServerWithMime)
+	mux.Handle("/src/", fileServerWithMime)
+	mux.Handle("/public/", fileServerWithMime)
+	mux.Handle("/node_modules/", fileServerWithMime)
+	mux.Handle("/dist/", fileServerWithMime)
 
 	// Root handler for all other paths
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -103,6 +139,14 @@ func main() {
 		_, err := os.Stat(path)
 		if err == nil && !strings.HasSuffix(path, "/") {
 			log.Printf("Serving file directly: %s", path)
+
+			// Determine Content-Type based on file extension
+			ext := filepath.Ext(path)
+			mimeType := mime.TypeByExtension(ext)
+			if mimeType != "" {
+				w.Header().Set("Content-Type", mimeType)
+			}
+
 			http.ServeFile(w, r, path)
 			return
 		}
@@ -115,11 +159,22 @@ func main() {
 			// Check if index.html exists
 			_, err := os.Stat(indexPath)
 			if err != nil {
+				// Try dist/index.html as fallback
+				distIndexPath := filepath.Join(frontendDir, "dist", "index.html")
+				_, distErr := os.Stat(distIndexPath)
+				if distErr == nil {
+					log.Printf("Serving dist/index.html as fallback")
+					w.Header().Set("Content-Type", "text/html")
+					http.ServeFile(w, r, distIndexPath)
+					return
+				}
+
 				log.Printf("ERROR: index.html not found at %s: %v", indexPath, err)
 				http.Error(w, "index.html not found", http.StatusNotFound)
 				return
 			}
 
+			w.Header().Set("Content-Type", "text/html")
 			http.ServeFile(w, r, indexPath)
 		} else {
 			http.NotFound(w, r)
