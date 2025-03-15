@@ -28,6 +28,7 @@ jobs:
       run: |
         cd frontend
         npm install
+        npm install @stripe/stripe-js @stripe/react-stripe-js --save
 
     - name: Build Frontend
       run: |
