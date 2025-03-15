@@ -1,7 +1,5 @@
 build:
   languages:
-    go: 
-      packages: 
-        - ./backend
+    go: {}
 run:
-  web: cd backend && ./main 
+  web: cd backend/cmd/api && go run main.go 
