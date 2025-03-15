@@ -35,20 +35,30 @@ func main() {
 
 	// Serve static files for the frontend
 	fileServer := http.FileServer(http.Dir(frontendDir))
-	mux.Handle("/static/", fileServer)
 	mux.Handle("/assets/", fileServer)
+	mux.Handle("/static/", fileServer)
+	mux.Handle("/css/", fileServer)
+	mux.Handle("/js/", fileServer)
 
-	// For any other request, serve the index.html
+	// Also serve files at the root level of dist
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		// Skip API routes
-		if strings.HasPrefix(r.URL.Path, "/api") {
-			http.NotFound(w, r)
+		// First try to serve as a static file from dist directory
+		path := filepath.Join(frontendDir, r.URL.Path)
+
+		// Check if file exists at the path
+		_, err := os.Stat(path)
+		if err == nil {
+			http.FileServer(http.Dir(frontendDir)).ServeHTTP(w, r)
 			return
 		}
 
-		// Serve index.html for any other route
-		indexPath := filepath.Join(frontendDir, "index.html")
-		http.ServeFile(w, r, indexPath)
+		// If not a static file and not an API route, serve index.html
+		if !strings.HasPrefix(r.URL.Path, "/api") {
+			indexPath := filepath.Join(frontendDir, "index.html")
+			http.ServeFile(w, r, indexPath)
+		} else {
+			http.NotFound(w, r)
+		}
 	})
 
 	// Start the server
