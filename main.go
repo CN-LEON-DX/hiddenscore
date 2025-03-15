@@ -45,7 +45,8 @@ func main() {
 	cwd, _ := os.Getwd()
 	log.Printf("Current working directory: %s", cwd)
 
-	frontendDir := "./frontend"
+	// Sử dụng thư mục dist
+	frontendDir := "./frontend/dist"
 
 	// Debug: List files in the frontend directory
 	log.Printf("Listing files in %s:", frontendDir)
@@ -97,20 +98,6 @@ func main() {
 		return
 	})
 
-	// Create custom file server with MIME type handling
-	fileServerWithMime := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		path := filepath.Join(frontendDir, r.URL.Path)
-
-		// Determine Content-Type based on file extension
-		ext := filepath.Ext(path)
-		mimeType := mime.TypeByExtension(ext)
-		if mimeType != "" {
-			w.Header().Set("Content-Type", mimeType)
-		}
-
-		http.FileServer(http.Dir(frontendDir)).ServeHTTP(w, r)
-	})
-
 	// Create simple middleware for logging requests
 	logMiddleware := func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -119,67 +106,42 @@ func main() {
 		})
 	}
 
-	// Serve static files with MIME handling
-	mux.Handle("/assets/", fileServerWithMime)
-	mux.Handle("/static/", fileServerWithMime)
-	mux.Handle("/src/", fileServerWithMime)
-	mux.Handle("/public/", fileServerWithMime)
-	mux.Handle("/node_modules/", fileServerWithMime)
-	mux.Handle("/dist/", fileServerWithMime)
+	// Simple handler for all requests
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// API endpoints
+		if strings.HasPrefix(r.URL.Path, "/api") {
+			if r.URL.Path == "/api" {
+				w.Header().Set("Content-Type", "application/json")
+				fmt.Fprintf(w, `{"status":"ok","port":"%s"}`, port)
+			} else {
+				http.NotFound(w, r)
+			}
+			return
+		}
 
-	// Root handler for all other paths
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		// Try to serve directly from file system first
+		// Direct file path
 		path := filepath.Join(frontendDir, r.URL.Path)
 
-		// Log the actual file path we're looking for
-		log.Printf("Looking for file: %s", path)
-
-		// Check if file exists
+		// Check if file exists and serve it
 		_, err := os.Stat(path)
 		if err == nil && !strings.HasSuffix(path, "/") {
-			log.Printf("Serving file directly: %s", path)
-
-			// Determine Content-Type based on file extension
 			ext := filepath.Ext(path)
 			mimeType := mime.TypeByExtension(ext)
 			if mimeType != "" {
 				w.Header().Set("Content-Type", mimeType)
 			}
-
 			http.ServeFile(w, r, path)
 			return
 		}
 
-		// For all other requests serve index.html (SPA approach)
-		if !strings.HasPrefix(r.URL.Path, "/api") {
-			indexPath := filepath.Join(frontendDir, "index.html")
-			log.Printf("Serving index.html (path: %s)", indexPath)
-
-			// Check if index.html exists
-			_, err := os.Stat(indexPath)
-			if err != nil {
-				// Try dist/index.html as fallback
-				distIndexPath := filepath.Join(frontendDir, "dist", "index.html")
-				_, distErr := os.Stat(distIndexPath)
-				if distErr == nil {
-					log.Printf("Serving dist/index.html as fallback")
-					w.Header().Set("Content-Type", "text/html")
-					http.ServeFile(w, r, distIndexPath)
-					return
-				}
-
-				log.Printf("ERROR: index.html not found at %s: %v", indexPath, err)
-				http.Error(w, "index.html not found", http.StatusNotFound)
-				return
-			}
-
-			w.Header().Set("Content-Type", "text/html")
-			http.ServeFile(w, r, indexPath)
-		} else {
-			http.NotFound(w, r)
-		}
+		// For any other path, serve index.html
+		indexPath := filepath.Join(frontendDir, "index.html")
+		w.Header().Set("Content-Type", "text/html")
+		http.ServeFile(w, r, indexPath)
 	})
+
+	// Register our handler for all paths
+	mux.Handle("/", handler)
 
 	log.Printf("Server listening on port %s", port)
 	log.Fatal(http.ListenAndServe(":"+port, logMiddleware(mux)))
