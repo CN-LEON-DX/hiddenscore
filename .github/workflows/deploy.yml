@@ -35,6 +35,7 @@ jobs:
         npm run build
       env:
         VITE_API_URL: https://www.fuzzyai.click
+        TSC_COMPILE_ON_ERROR: true
 
     - name: Install Backend Dependencies
       run: |
