@@ -1,2 +1,2 @@
-web: npm start --prefix frontend
+web: cd backend && ./main
 api: cd backend && go run main.go 

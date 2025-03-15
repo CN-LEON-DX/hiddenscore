@@ -39,6 +39,11 @@ jobs:
         VITE_SKIP_TYPECHECK: true
         NODE_ENV: production
 
+    - name: Move Frontend Build to Backend
+      run: |
+        mkdir -p backend/static
+        cp -r frontend/dist/* backend/static/
+
     - name: Install Backend Dependencies
       run: |
         cd backend
@@ -49,10 +54,24 @@ jobs:
         cd backend
         go build -o main ./cmd/api
 
+    - name: Install Heroku CLI
+      run: |
+        curl https://cli-assets.heroku.com/install.sh | sh
+
+    - name: Create Heroku App
+      run: |
+        heroku auth:token
+        heroku apps:info hiddenscore || heroku create hiddenscore
+        heroku buildpacks:clear -a hiddenscore
+        heroku buildpacks:add heroku/nodejs -a hiddenscore
+        heroku buildpacks:add heroku/go -a hiddenscore
+      env:
+        HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+
     - name: Deploy to Heroku
       uses: akhileshns/heroku-deploy@v3.12.14
       with:
         heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
         heroku_app_name: "hiddenscore"
         heroku_email: "fuzzyfox145@gmail.com"
-        buildpack: "heroku/nodejs heroku/go"
+        dontautocreate: true
