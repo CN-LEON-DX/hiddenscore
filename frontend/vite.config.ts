@@ -23,12 +23,28 @@ export default defineConfig({
     },
   },
   build: {
-    sourcemap: true,
+    outDir: 'dist',
+    assetsDir: 'assets',
+    sourcemap: process.env.NODE_ENV !== 'production',
     commonjsOptions: {
       transformMixedEsModules: true,
     },
     rollupOptions: {
-      // Including all dependencies in the bundle
-    }
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom', 'react-router-dom'],
+        },
+      }
+    },
+    emptyOutDir: true,
+    // Ensure we generate a clean build without requiring a clean command
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: process.env.NODE_ENV === 'production',
+      },
+    },
   },
+  // Properly handle base path for deployment
+  base: '/'
 })

@@ -3,7 +3,10 @@
   "version": "1.0.0",
   "scripts": {
     "postinstall": "cd frontend && npm install --production=false --legacy-peer-deps && npm run build",
-    "start": "go run main.go"
+    "start": "go run main.go",
+    "dev": "go run main.go",
+    "build": "cd frontend && npm run build",
+    "heroku-postbuild": "cd frontend && npm install && npm run build"
   },
   "engines": {
     "node": "18.x",
