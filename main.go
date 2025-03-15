@@ -43,6 +43,13 @@ func main() {
 	mime.AddExtensionType(".otf", "font/otf")
 	mime.AddExtensionType(".eot", "application/vnd.ms-fontobject")
 
+	// Health check endpoint for Heroku deployment
+	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"status":"ok"}`))
+	})
+
 	// Ghi log thư mục hiện tại và danh sách tệp cho debug
 	cwd, _ := os.Getwd()
 	log.Printf("Current working directory: %s", cwd)

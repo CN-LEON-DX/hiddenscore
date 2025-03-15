@@ -11,7 +11,7 @@ export default defineConfig({
     proxy: {
       // Single catch-all proxy for the backend
       '/api': {
-        target: 'http://localhost:8081',
+        target: process.env.VITE_API_URL || 'http://localhost:8081',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, '')
       }
@@ -25,7 +25,7 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     assetsDir: 'assets',
-    sourcemap: process.env.NODE_ENV !== 'production',
+    sourcemap: false,
     commonjsOptions: {
       transformMixedEsModules: true,
     },
@@ -33,17 +33,22 @@ export default defineConfig({
       output: {
         manualChunks: {
           vendor: ['react', 'react-dom', 'react-router-dom'],
+          ui: ['@headlessui/react', '@heroicons/react'],
+          utils: ['axios', 'react-hook-form']
         },
       }
     },
     emptyOutDir: true,
-    // Ensure we generate a clean build without requiring a clean command
     minify: 'terser',
     terserOptions: {
       compress: {
-        drop_console: process.env.NODE_ENV === 'production',
+        drop_console: true,
+        drop_debugger: true
       },
     },
+    target: 'es2015',
+    cssCodeSplit: true,
+    chunkSizeWarningLimit: 1000,
   },
   // Properly handle base path for deployment
   base: '/'
