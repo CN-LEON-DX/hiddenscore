@@ -20,12 +20,11 @@ func main() {
 		port = "8080"
 	}
 
-	// Đăng ký MIME types cho các loại file khác nhau
 	mime.AddExtensionType(".js", "application/javascript")
 	mime.AddExtensionType(".mjs", "application/javascript")
 	mime.AddExtensionType(".jsx", "application/javascript")
-	mime.AddExtensionType(".ts", "application/javascript")
 	mime.AddExtensionType(".tsx", "application/javascript")
+	mime.AddExtensionType(".ts", "application/javascript")
 	mime.AddExtensionType(".css", "text/css")
 	mime.AddExtensionType(".json", "application/json")
 	mime.AddExtensionType(".html", "text/html")
@@ -45,8 +44,8 @@ func main() {
 	cwd, _ := os.Getwd()
 	log.Printf("Current working directory: %s", cwd)
 
-	// Sử dụng thư mục dist
-	frontendDir := "./frontend/dist"
+	// Sử dụng thư mục frontend thay vì frontend/dist
+	frontendDir := "./frontend"
 
 	// Debug: List files in the frontend directory
 	log.Printf("Listing files in %s:", frontendDir)
@@ -66,6 +65,9 @@ func main() {
 		}
 		return nil
 	})
+
+	// Đảm bảo tạo thư mục dist nếu chưa tồn tại
+	os.MkdirAll(filepath.Join(frontendDir, "dist"), 0755)
 
 	mux := http.NewServeMux()
 
@@ -116,6 +118,31 @@ func main() {
 			} else {
 				http.NotFound(w, r)
 			}
+			return
+		}
+
+		// Handle /src/ paths for direct access to source files
+		if strings.HasPrefix(r.URL.Path, "/src/") {
+			path := filepath.Join(frontendDir, r.URL.Path)
+			ext := filepath.Ext(path)
+			mimeType := mime.TypeByExtension(ext)
+			if mimeType != "" {
+				w.Header().Set("Content-Type", mimeType)
+			}
+			http.ServeFile(w, r, path)
+			return
+		}
+
+		// Handle /public/ paths
+		if strings.HasPrefix(r.URL.Path, "/public/") {
+			relativePath := strings.TrimPrefix(r.URL.Path, "/public/")
+			path := filepath.Join(frontendDir, "public", relativePath)
+			ext := filepath.Ext(path)
+			mimeType := mime.TypeByExtension(ext)
+			if mimeType != "" {
+				w.Header().Set("Content-Type", mimeType)
+			}
+			http.ServeFile(w, r, path)
 			return
 		}
 

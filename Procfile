@@ -1,1 +1,1 @@
-web: ./bin/hiddenscore 
+web: ./bin/app 

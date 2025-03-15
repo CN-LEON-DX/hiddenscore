@@ -1,9 +1,10 @@
 build:
   languages:
     go: {}
+  config:
+    GOROOT: go
   packages:
-    - pkg: ./backend/cmd/api
-      includes:
-        - main
+    - includes:
+        - main.go
 run:
-  web: ./bin/main 
+  web: ./bin/app 
