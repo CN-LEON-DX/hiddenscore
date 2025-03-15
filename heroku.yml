@@ -1,10 +1,15 @@
+setup:
+  addons:
+    - plan: heroku-postgresql:hobby-dev
+      as: DATABASE
 build:
   languages:
-    go: {}
+    - go
+    - nodejs
   config:
     GOROOT: go
   packages:
-    - includes:
-        - main.go
+    - nodejs
+    - golang
 run:
   web: ./bin/app 
