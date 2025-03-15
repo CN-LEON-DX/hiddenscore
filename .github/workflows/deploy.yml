@@ -36,14 +36,20 @@ jobs:
       env:
         VITE_API_URL: https://hiddenscore.herokuapp.com/api
         NODE_ENV: production
-
-    - name: Install Backend Dependencies
+        
+    - name: Copy frontend build
       run: |
+        mkdir -p static
+        cp -r frontend/dist/* static/
+
+    - name: Go module fix
+      run: |
+        go mod tidy
         go mod download
 
     - name: Build Backend
       run: |
-        go build -o bin/app
+        go build -o bin/app .
 
     - name: Install Heroku CLI
       run: |

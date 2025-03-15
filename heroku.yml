@@ -5,11 +5,7 @@ setup:
 build:
   languages:
     - go
-    - nodejs
   config:
-    GOROOT: go
-  packages:
-    - nodejs
-    - golang
+    GOVERSION: 1.21.0
 run:
-  web: ./bin/app 
+  web: bin/app 

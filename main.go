@@ -56,8 +56,12 @@ func main() {
 
 	// Trước tiên tìm thư mục frontend/dist, nếu không có thì sử dụng frontend
 	var frontendDir string
+	staticPath := filepath.Join(cwd, "static")
 	distPath := filepath.Join(cwd, "frontend", "dist")
-	if _, err := os.Stat(distPath); err == nil {
+	if _, err := os.Stat(staticPath); err == nil {
+		frontendDir = "./static"
+		log.Printf("Using static directory")
+	} else if _, err := os.Stat(distPath); err == nil {
 		frontendDir = "./frontend/dist"
 		log.Printf("Using frontend/dist directory")
 	} else {
@@ -65,7 +69,6 @@ func main() {
 		log.Printf("Using frontend directory")
 	}
 
-	// In danh sách tệp trong thư mục frontend để debug
 	log.Printf("Listing files in %s:", frontendDir)
 	filepath.Walk(frontendDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
