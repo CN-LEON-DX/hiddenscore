@@ -1,5 +1,9 @@
 build:
   languages:
     go: {}
+  packages:
+    - pkg: ./backend/cmd/api
+      includes:
+        - main
 run:
-  web: cd backend/cmd/api && go run main.go 
+  web: ./bin/main 

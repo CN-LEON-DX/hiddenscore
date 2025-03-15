@@ -1,7 +1,13 @@
 {
-  "root": "frontend/dist",
+  "root": "frontend/build/",
   "clean_urls": true,
   "routes": {
     "/**": "index.html"
+  },
+  "https_only": true,
+  "headers": {
+    "/**": {
+      "Strict-Transport-Security": "max-age=31536000; includeSubDomains"
+    }
   }
 } 
