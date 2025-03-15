@@ -2,10 +2,13 @@ import { Helmet } from 'react-helmet';
 import { Link } from 'react-router-dom';
 import TopProduct from '../components/TopProduct';
 import DiamondSearchFilter from '../components/Search';
-import {SetStateAction, useState } from 'react';
+import {SetStateAction, useState, useEffect } from 'react';
 import Carousel from '../components/Carousel';
 import ListProduct from '../components/ListProduct';
 import PaginationTemp from '../components/PaginationTemp';
+import api from '../utils/api';
+import { useCart } from '../context/CartContext';
+import { FaShoppingCart } from 'react-icons/fa';
 
 const diamondCollection = [
     { name: 'The Blue Hope Diamond', description: 'A rare blue diamond with a rich history and exceptional beauty.' },
@@ -15,17 +18,75 @@ const diamondCollection = [
     { name: 'The Regent Diamond', description: 'A diamond with a brilliant cut and a fascinating history.' },
 ];
 
+interface Product {
+    id: string;
+    name: string;
+    description: string;
+    price: number;
+    image: string;
+    category: string;
+}
+
 export default function Products() {
     const [currentPage, setCurrentPage] = useState(1);
+    const [products, setProducts] = useState<Product[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const { addToCart } = useCart();
 
     const handlePageChange = (pageNumber: SetStateAction<number>) => {
         setCurrentPage(pageNumber);
     };
 
+    useEffect(() => {
+        const fetchProducts = async () => {
+            try {
+                const response = await api.get('/products');
+                setProducts(response.data);
+            } catch (err) {
+                setError('Failed to load products');
+                console.error('Error fetching products:', err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchProducts();
+    }, []);
+
+    const handleAddToCart = (product: Product) => {
+        addToCart({
+            id: product.id,
+            name: product.name,
+            price: product.price,
+            quantity: 1,
+            image: product.image
+        });
+    };
+
+    if (loading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center">
+                <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-indigo-600"></div>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="min-h-screen flex items-center justify-center">
+                <div className="text-center">
+                    <h2 className="text-2xl font-bold text-gray-900">Error</h2>
+                    <p className="mt-2 text-gray-600">{error}</p>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <>
             <Helmet>
-                <title>Products</title>
+                <title>Products - Hidden Score</title>
             </Helmet>
             <TopProduct />
             <DiamondSearchFilter onSearch={() => {}} />

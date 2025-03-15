@@ -1,10 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Helmet } from 'react-helmet';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import React from 'react';
 import api from '../utils/api';
 import axios, { AxiosError } from 'axios';
 import useAuth from '../hooks/useAuth';
+import { Link } from 'react-router-dom';
+import { FaGoogle } from 'react-icons/fa';
+import { useForm } from 'react-hook-form';
 
 type FormData = {
     email: string;
@@ -19,6 +22,7 @@ type FormErrors = {
 
 export default function Login() {
     const navigate = useNavigate();
+    const location = useLocation();
     const { user } = useAuth();
     const [isLoading, setIsLoading] = useState(false);
     const [formData, setFormData] = useState<FormData>({
@@ -30,14 +34,32 @@ export default function Login() {
         password: '',
         general: ''
     });
+    const { register, handleSubmit } = useForm<FormData>();
 
-    const handleGoogleSignIn = async () => {
+    useEffect(() => {
+        // Kiểm tra nếu có thông báo lỗi từ URL
+        const params = new URLSearchParams(location.search);
+        const errorType = params.get('error');
+        
+        if (errorType === 'email_exists') {
+            setErrors({
+                ...errors,
+                general: 'This email is already registered. Please try logging in with your password or use a different email.'
+            });
+        }
+    }, [location]);
+
+    const handleGoogleSignIn = () => {
         setIsLoading(true);
         try {
-            // Use the /api prefix for all requests
-            window.location.href = `/api/auth/google/login`;
+            // Redirect to Google login with correct callback URL
+            window.location.href = `/api/auth/google/login?redirect_uri=${encodeURIComponent(window.location.origin + '/auth/google/callback')}`;
         } catch (error) {
             console.error("Google sign-in error:", error);
+            setErrors({
+                ...errors,
+                general: 'Failed to initiate Google login. Please try again.'
+            });
         } finally {
             setIsLoading(false);
         }
@@ -81,46 +103,34 @@ export default function Login() {
         return isValid;
     };
 
-    const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-        e.preventDefault();
+    const onSubmit = async (data: FormData) => {
         setIsLoading(true);
         
-        // Reset errors
         setErrors({
             email: '',
             password: '',
             general: ''
         });
         
-        // Validate form
         if (!validateForm()) {
             setIsLoading(false);
             return;
         }
         
         try {
-            const loginResponse = await api.post('/auth/login', {
-                email: formData.email,
-                password: formData.password
-            });
-            
-            // Successful login - the useAuth hook will handle updating the user state
-            // via the /api/me endpoint that gets called after a successful login
-            
-            // Redirect to home page
+            const loginResponse = await api.post('/auth/login', data);
             navigate('/');
         } catch (error) {
-            if (axios.isAxiosError(error) && error.response) {
-                setErrors({
-                    ...errors,
-                    general: error.response.data?.error || 'Login failed. Please try again.'
-                });
-            } else {
-                setErrors({
-                    ...errors,
-                    general: 'An unexpected error occurred. Please try again.'
-                });
+            if (axios.isAxiosError(error)) {
+                const errorMessage = error.response?.data?.error;
+                if (errorMessage) {
+                    throw new Error(errorMessage); // Let ErrorBoundary handle the error
+                }
             }
+            setErrors({
+                ...errors,
+                general: 'An unexpected error occurred. Please try again.'
+            });
             console.error('Error during login:', error);
         } finally {
             setIsLoading(false);
@@ -153,7 +163,7 @@ export default function Login() {
                         </div>
                     )}
 
-                    <form onSubmit={handleSubmit} className="space-y-6">
+                    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
                         <div>
                             <label htmlFor="email" className="block text-sm/6 font-medium text-gray-900">
                                 Email address
@@ -172,18 +182,10 @@ export default function Login() {
                                 {errors.email && <p className="mt-1 text-sm text-red-500">{errors.email}</p>}
                             </div>
                         </div>
-
                         <div>
-                            <div className="flex items-center justify-between">
-                                <label htmlFor="password" className="block text-sm/6 font-medium text-gray-900">
-                                    Password
-                                </label>
-                                <div className="text-sm">
-                                    <a href="#" className="font-semibold text-indigo-600 hover:text-indigo-500">
-                                        Forgot password?
-                                    </a>
-                                </div>
-                            </div>
+                            <label htmlFor="password" className="block text-sm/6 font-medium text-gray-900">
+                                Password
+                            </label>
                             <div className="mt-2">
                                 <input
                                     id="password"
@@ -192,20 +194,18 @@ export default function Login() {
                                     value={formData.password}
                                     onChange={handleInputChange}
                                     required
-                                    autoComplete="current-password"
                                     className={`block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 ${errors.password ? 'outline-red-500' : 'outline-gray-300'} placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6`}
                                 />
                                 {errors.password && <p className="mt-1 text-sm text-red-500">{errors.password}</p>}
                             </div>
                         </div>
-
                         <div>
                             <button
                                 type="submit"
                                 disabled={isLoading}
-                                className="flex w-full justify-center rounded-md bg-indigo-600 px-3 py-1.5 text-sm/6 font-semibold text-white shadow-xs hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:opacity-50"
+                                className="flex w-full justify-center rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-semibold leading-6 text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
                             >
-                                {isLoading ? 'Signing in...' : 'Sign in'}
+                                {isLoading ? 'Signing in...' : 'Sign In'}
                             </button>
                         </div>
                     </form>
@@ -226,31 +226,26 @@ export default function Login() {
                                 disabled={isLoading}
                                 className="flex w-full items-center justify-center gap-3 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 disabled:opacity-50"
                             >
-                                <svg className="h-5 w-5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                    <path
-                                        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                                        fill="#4285F4"/>
-                                    <path
-                                        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                                        fill="#34A853"/>
-                                    <path
-                                        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                                        fill="#FBBC05"/>
-                                    <path
-                                        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                                        fill="#EA4335"/>
-                                </svg>
+                                <FaGoogle className="h-5 w-5 text-red-500" />
                                 Sign in with Google
                             </button>
                         </div>
                     </div>
 
-                    <p className="mt-10 text-center text-sm/6 text-gray-500">
-                        New to our platform?{' '}
-                        <a href="/signup" className="font-semibold text-indigo-600 hover:text-indigo-500">
-                            Sign up
-                        </a>
-                    </p>
+                    <div className="mt-6 flex flex-col space-y-2">
+                        <p className="text-center text-sm text-gray-600">
+                            <a href="/forgot-password" className="font-semibold text-indigo-600 hover:text-indigo-500">
+                                Forgot password?
+                            </a>
+                        </p>
+
+                        <p className="text-center text-sm text-gray-600">
+                            Don't have an account?{' '}
+                            <Link to="/signup" className="font-semibold text-indigo-600 hover:text-indigo-500">
+                                Sign up
+                            </Link>
+                        </p>
+                    </div>
                 </div>
             </div>
         </>

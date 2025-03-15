@@ -3,7 +3,7 @@ import { Helmet } from 'react-helmet';
 import { useNavigate } from 'react-router-dom';
 import React from 'react';
 import api from '../utils/api';
-import axios, { AxiosError } from 'axios';
+import  { AxiosError } from 'axios';
 
 type FormData = {
     name: string;

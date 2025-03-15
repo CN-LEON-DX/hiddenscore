@@ -1,32 +1,48 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import './styles/App.css'
-import Home from "./pages/Home.tsx"
-import Login from "./pages/Login.tsx"
-import Signup from "./pages/Signup.tsx";
-import ConfirmEmail from "./pages/ConfirmEmail.tsx";
-import Products from "./pages/Products.tsx";
-import DetailProduct from "./pages/DetailProduct.tsx"; // Make sure this file exists
-import Cart from './pages/Cart.tsx';
-import Header from "./components/Header.tsx";
-import Footer from "./components/Footer.tsx";
-import Checkout from "./pages/Checkout.tsx";
+import Home from "./pages/Home"
+import Login from "./pages/Login"
+import Signup from "./pages/Signup";
+import ConfirmEmail from "./pages/ConfirmEmail";
+import Products from "./pages/Products";
+import DetailProduct from "./pages/DetailProduct";
+import Cart from './pages/Cart';
+import Header from "./components/Header";
+import Footer from "./components/Footer";
+import Checkout from "./pages/Checkout";
+import Error404 from './pages/Error404';
+import Error from './pages/Error';
+import GoogleCallback from './pages/GoogleCallback';
+import ErrorBoundary from './components/ErrorBoundary';
+import { CartProvider } from './context/CartContext';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 function App() {
   return (
-      <BrowserRouter>
+    <ErrorBoundary>
+      <CartProvider>
+        <BrowserRouter>
+          <ToastContainer position="top-right" autoClose={3000} />
           <Header/>
           <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<Signup />} />
-          <Route path="/confirm-email" element={<ConfirmEmail />} />
-          <Route path="/products" element={<Products />} />
-          <Route path="/products/detail/:productId" element={<DetailProduct />} />
-          <Route path="/cart" element={<Cart />} />
-          <Route path="/checkout" element={<Checkout/>} />
+            <Route path="/" element={<Home />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/signup" element={<Signup />} />
+            <Route path="/confirm-email" element={<ConfirmEmail />} />
+            <Route path="/products" element={<Products />} />
+            <Route path="/products/detail/:productId" element={<DetailProduct />} />
+            <Route path="/cart" element={<Cart />} />
+            <Route path="/checkout" element={<Checkout/>} />
+            <Route path="/auth/google/callback" element={<GoogleCallback />} />
+            <Route path="/error" element={<Error />} />
+            <Route path="/404" element={<Error404 />} />
+            <Route path="*" element={<Error404 />} />
           </Routes>
           <Footer/>
-      </BrowserRouter>
+        </BrowserRouter>
+      </CartProvider>
+    </ErrorBoundary>
   )
 }
 

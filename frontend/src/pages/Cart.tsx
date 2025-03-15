@@ -74,7 +74,8 @@ const Cart = () => {
                                                 id={`quantity-${item.id}`}
                                                 value={item.quantity}
                                                 onChange={(e) => handleQuantityChange(item.id, parseInt(e.target.value))}
-                                                className="w-16 border border-gray-300 rounded-md text-center dark:bg-gray-800 dark:text-white dark:border-gray-600"
+                                                className="w-16 p-2 text-center text-white bg-white rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-150 ease-in-out"
+                                                min="1"
                                             />
                                         </div>
                                     </div>
