@@ -2,20 +2,25 @@ package handler
 
 import (
 	"backend/internal/domain/repository"
-	"encoding/json"
 	"net/http"
+
+	"github.com/gin-gonic/gin"
 )
 
 type UserHandler struct {
 	Repo repository.UserRepository
 }
 
-func (h *UserHandler) GetUsers(w http.ResponseWriter, r *http.Request) {
+// Updated to use gin context
+func (h *UserHandler) GetUsers(c *gin.Context) {
 	users, err := h.Repo.GetAllUsers()
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to get users",
+			"code":  "DATABASE_ERROR",
+		})
 		return
 	}
 
-	json.NewEncoder(w).Encode(users)
+	c.JSON(http.StatusOK, users)
 }

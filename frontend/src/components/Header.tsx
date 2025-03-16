@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import { Fragment, useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import {
     Dialog,
     DialogPanel,
@@ -9,6 +10,7 @@ import {
     PopoverButton,
     PopoverGroup,
     PopoverPanel,
+    Transition
 } from '@headlessui/react'
 import {
     Bars3Icon,
@@ -23,6 +25,7 @@ import {
 
 import { ChevronDownIcon, PhoneIcon, PlayCircleIcon } from '@heroicons/react/20/solid'
 import useAuth from '../hooks/useAuth';
+import { cartAPI } from '../utils/api';
 
 const products = [
     { name: 'Engagement Rings', description: 'Stunning diamond rings for your special moment', href: '/engagement-rings', icon: HeartIcon },
@@ -36,10 +39,25 @@ const callsToAction = [
     { name: 'Contact sales', href: '#', icon: PhoneIcon },
 ]
 
+// Type definition for cart items
+interface CartItem {
+    id: number;
+    quantity: number;
+    product: {
+        id: number;
+        name: string;
+        price: number;
+        image: string;
+    };
+    subtotal: number;
+}
+
 const Header = () => {
-    const { user, logout } = useAuth();
+    const { user, isAuthenticated, logout } = useAuth();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [cartItemCount, setCartItemCount] = useState(0);
+    const [cartItems, setCartItems] = useState<CartItem[]>([]);
+    const [cartLoading, setCartLoading] = useState(false);
     const defaultImage = '/logo.svg';
 
     const profileMenuItems = [
@@ -49,26 +67,38 @@ const Header = () => {
         { name: 'Order History', href: '/order-history', icon: ClockIcon },
     ];
 
-    useEffect(() => {
-        fetch('/api/cart')
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`HTTP error! Status: ${response.status}`);
-                }
-                return response.json();
-            })
-            .then(data => {
-                if (data && data.cartItems && Array.isArray(data.cartItems)) {
-                    setCartItemCount(data.cartItems.length);
-                } else {
-                    setCartItemCount(0);
-                }
-            })
-            .catch(error => {
-                console.error('Error fetching cart items:', error);
+    const fetchCartItems = async () => {
+        try {
+            setCartLoading(true);
+            const cartData = await cartAPI.getCart();
+            
+            if (cartData && cartData.items) {
+                setCartItems(cartData.items);
+                
+                // Calculate total items in cart
+                const totalItems = cartData.items.reduce((total: number, item: CartItem) => total + item.quantity, 0);
+                setCartItemCount(totalItems);
+            } else {
+                setCartItems([]);
                 setCartItemCount(0);
-            });
-    }, []);
+            }
+        } catch (error) {
+            console.error('Error fetching cart items:', error);
+            setCartItems([]);
+            setCartItemCount(0);
+        } finally {
+            setCartLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if (isAuthenticated) {
+            fetchCartItems();
+        } else {
+            setCartItems([]);
+            setCartItemCount(0);
+        }
+    }, [isAuthenticated]);
 
     return (
         <header className="bg-white">

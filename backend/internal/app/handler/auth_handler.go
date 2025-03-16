@@ -4,6 +4,7 @@ import (
 	"backend/internal/domain/entity"
 	"backend/internal/domain/models"
 	"backend/internal/domain/repository"
+	"backend/internal/infras/database"
 	cryptorand "crypto/rand"
 	"crypto/tls"
 	"encoding/hex"
@@ -80,32 +81,71 @@ func (h *AuthHandler) RegisterWithGmail(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(400, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Invalid input",
+			"message": "Please check your information and try again. Email and password are required.",
+			"code":    "INVALID_INPUT",
+		})
 		return
 	}
 
 	// Check if email is valid Gmail address
 	if !strings.HasSuffix(input.Email, "@gmail.com") {
-		c.JSON(400, gin.H{"error": "Please use a Gmail address"})
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Invalid email domain",
+			"message": "Please use a Gmail address for registration.",
+			"code":    "INVALID_EMAIL_DOMAIN",
+		})
 		return
 	}
 
 	// Check if user already exists
 	existingUser, err := h.UserRepo.FindByEmail(input.Email)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		c.JSON(500, gin.H{"error": "Error checking user existence"})
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Database error",
+			"message": "We're experiencing technical difficulties. Please try again later.",
+			"code":    "DB_ERROR",
+		})
 		return
 	}
 
 	if existingUser != nil {
-		c.JSON(400, gin.H{"error": "Email already registered"})
+		c.JSON(http.StatusConflict, gin.H{
+			"error":   "Email already registered",
+			"message": "This email address is already registered. Please try logging in instead.",
+			"code":    "EMAIL_ALREADY_EXISTS",
+		})
+		return
+	}
+	// Generate confirmation token
+	token, err := generateToken(32)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Token generation failed",
+			"message": "We couldn't generate your confirmation. Please try again later.",
+			"code":    "TOKEN_GENERATION_FAILED",
+		})
+		return
+	}
+
+	if err := sendConfirmationEmail(input.Email, token); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Email sending failed",
+			"message": "We couldn't send the confirmation email. Please try again later.",
+			"code":    "EMAIL_SENDING_FAILED",
+		})
 		return
 	}
 
 	// Hash the password
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
 	if err != nil {
-		c.JSON(500, gin.H{"error": "Failed to process password"})
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Password processing failed",
+			"message": "We couldn't process your password. Please try again later.",
+			"code":    "PASSWORD_PROCESSING_ERROR",
+		})
 		return
 	}
 
@@ -119,14 +159,21 @@ func (h *AuthHandler) RegisterWithGmail(c *gin.Context) {
 
 	newUser, err := h.UserRepo.CreateUser(*user)
 	if err != nil {
-		c.JSON(500, gin.H{"error": "Failed to register user"})
-		return
-	}
+		// Check for duplicate error
+		if strings.Contains(err.Error(), "duplicate key") || strings.Contains(err.Error(), "23505") {
+			c.JSON(http.StatusConflict, gin.H{
+				"error":   "Email already registered",
+				"message": "This email address is already registered. Please try logging in instead.",
+				"code":    "EMAIL_ALREADY_EXISTS",
+			})
+			return
+		}
 
-	// Generate confirmation token
-	token, err := generateToken(32)
-	if err != nil {
-		c.JSON(500, gin.H{"error": "Failed to generate confirmation token"})
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Registration failed",
+			"message": "We couldn't complete your registration. Please try again later.",
+			"code":    "REGISTRATION_FAILED",
+		})
 		return
 	}
 
@@ -139,36 +186,39 @@ func (h *AuthHandler) RegisterWithGmail(c *gin.Context) {
 	}
 
 	if err := h.tmpRepo.Create(tmpRecord); err != nil {
-		c.JSON(500, gin.H{"error": "Failed to create temporary record"})
-		return
-	}
-
-	// Check environment - in development, auto-confirm and bypass email
-	if os.Getenv("APP_ENV") != "production" {
-		// Auto-confirm user in development
-		tmpRecord.Status = "true"
-		if err := h.tmpRepo.Update(tmpRecord); err != nil {
-			// Log only critical errors
-			log.Printf("Error auto-confirming user: %v", err)
-		}
-
-		c.JSON(201, gin.H{
-			"message": "Registration successful. Your account has been automatically confirmed in development mode.",
-			"email":   input.Email,
-			"token":   token,
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Temporary record creation failed",
+			"message": "We couldn't create your confirmation record. Please try again later.",
+			"code":    "TMP_RECORD_FAILED",
 		})
 		return
 	}
 
-	// In production, send confirmation email
-	if err := sendConfirmationEmail(input.Email, token); err != nil {
-		c.JSON(500, gin.H{"error": "Failed to send confirmation email"})
+	err = h.createCartForUser(newUser.ID)
+	if err != nil {
+		log.Printf("Failed to create cart for new user %d: %v", newUser.ID, err)
+	}
+
+	// Check environment - in development, auto-confirm and bypass email
+	if os.Getenv("APP_ENV") != "production" {
+		tmpRecord.Status = "true"
+		if err := h.tmpRepo.Update(tmpRecord); err != nil {
+			log.Printf("Error auto-confirming user: %v", err)
+		}
+
+		c.JSON(http.StatusCreated, gin.H{
+			"message": "Registration successful. Your account has been automatically confirmed in development mode.",
+			"email":   input.Email,
+			"token":   token,
+			"code":    "REGISTRATION_SUCCESS_DEV",
+		})
 		return
 	}
 
-	c.JSON(201, gin.H{
+	c.JSON(http.StatusCreated, gin.H{
 		"message": "Registration successful. Please check your email to confirm your account. The confirmation link will expire in 5 minutes.",
 		"email":   input.Email,
+		"code":    "REGISTRATION_SUCCESS",
 	})
 }
 
@@ -210,7 +260,6 @@ func (h *AuthHandler) ConfirmEmail(c *gin.Context) {
 
 	log.Printf("User %d confirmed email successfully", user.ID)
 
-	// Update tmp record status
 	tmpUser.Status = "true"
 	if err := h.tmpRepo.Update(tmpUser); err != nil {
 		c.JSON(500, gin.H{"error": "Failed to update confirmation status"})
@@ -228,42 +277,134 @@ func (h *AuthHandler) LoginWithGmail(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(400, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Invalid input",
+			"message": "Please check your email and password.",
+			"code":    "INVALID_INPUT",
+		})
 		return
 	}
 
 	// Find user by email
 	user, err := h.UserRepo.FindByEmail(input.Email)
 	if err != nil || user == nil {
-		c.JSON(401, gin.H{"error": "Invalid email or password"})
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error":   "Authentication failed",
+			"message": "Invalid email or password. Please check your credentials and try again.",
+			"code":    "AUTH_FAILED",
+		})
 		return
 	}
 
-	// Check if account is confirmed by looking up tmp record
-	var tmpUser models.TmpUser
-	if err := h.tmpRepo.FindByUserID(user.ID, &tmpUser); err != nil {
-		c.JSON(401, gin.H{"error": "Account verification issue. Please contact support."})
+	// Check if this is a Google account
+	if user.GoogleID != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error":   "Google account",
+			"message": "This email is registered with Google. Please use Google Sign-In instead.",
+			"code":    "GOOGLE_ACCOUNT",
+		})
 		return
 	}
 
-	// If tmp record exists but not confirmed, reject login
-	if tmpUser.Status != "true" {
-		c.JSON(401, gin.H{"error": "Please confirm your email before logging in. Check your inbox for the confirmation link."})
-		return
+	// Skip confirmation check for non-production environments
+	if os.Getenv("APP_ENV") != "production" {
+		log.Printf("Development mode: Skipping confirmation check for user %d", user.ID)
+	} else {
+		// In production, check confirmation status
+		var tmpUser models.TmpUser
+		confirmationRequired := true
+
+		// Check if this is an older account (created before email verification was implemented)
+		if user.CreatedAt.Before(time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC)) {
+			log.Printf("Legacy user from before verification system, skipping check: %d", user.ID)
+			confirmationRequired = false
+		}
+
+		// Try to find confirmation record
+		err := h.tmpRepo.FindByUserID(user.ID, &tmpUser)
+
+		// If we can't find a confirmation record but confirmation is required
+		if err != nil && confirmationRequired {
+			log.Printf("No confirmation record found for user %d, creating new one", user.ID)
+			// Create a new verification record
+			token, tokenErr := generateToken(32)
+			if tokenErr == nil {
+				newTmpRecord := &models.TmpUser{
+					UserID:      user.ID,
+					Status:      "false",
+					TokenRemain: token,
+					CreatedAt:   time.Now(),
+				}
+
+				// Create the verification record
+				if createErr := h.tmpRepo.Create(newTmpRecord); createErr != nil {
+					log.Printf("Failed to create verification record: %v", createErr)
+				} else {
+					// Try to send verification email
+					if emailErr := sendConfirmationEmail(user.Email, token); emailErr != nil {
+						log.Printf("Failed to send verification email: %v", emailErr)
+					} else {
+						log.Printf("Sent confirmation email to %s", user.Email)
+					}
+				}
+
+				c.JSON(http.StatusUnauthorized, gin.H{
+					"error":   "Email not confirmed",
+					"message": "Please confirm your email before logging in. A confirmation email has been sent.",
+					"code":    "EMAIL_NOT_CONFIRMED",
+				})
+				return
+			}
+		} else if err == nil && tmpUser.Status != "true" && confirmationRequired {
+			// If we found a record but it's not confirmed
+			log.Printf("User %d has unconfirmed email, resending confirmation", user.ID)
+
+			// Resend confirmation email
+			if emailErr := sendConfirmationEmail(user.Email, tmpUser.TokenRemain); emailErr != nil {
+				log.Printf("Failed to resend confirmation email: %v", emailErr)
+			} else {
+				log.Printf("Resent confirmation email to %s", user.Email)
+			}
+
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error":   "Email not confirmed",
+				"message": "Please confirm your email before logging in. A new confirmation link has been sent to your email.",
+				"code":    "EMAIL_NOT_CONFIRMED",
+			})
+			return
+		}
 	}
 
 	// Verify password
 	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(input.Password))
 	if err != nil {
-		c.JSON(401, gin.H{"error": "Invalid email or password"})
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error":   "Authentication failed",
+			"message": "Invalid email or password. Please check your credentials and try again.",
+			"code":    "AUTH_FAILED",
+		})
 		return
 	}
 
 	// Generate JWT token
 	token, err := h.generateJWT(user)
 	if err != nil {
-		c.JSON(500, gin.H{"error": "Failed to generate token"})
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Token generation failed",
+			"message": "We couldn't create your authentication token. Please try again later.",
+			"code":    "TOKEN_GENERATION_FAILED",
+		})
 		return
+	}
+
+	// Check if user has a cart
+	if !h.userHasCart(user.ID) {
+		// Create a cart for the user
+		err = h.createCartForUser(user.ID)
+		if err != nil {
+			// Just log the error but continue, cart creation is not critical
+			log.Printf("Failed to create cart for user %d on login: %v", user.ID, err)
+		}
 	}
 
 	// Set cookie with token
@@ -277,13 +418,15 @@ func (h *AuthHandler) LoginWithGmail(c *gin.Context) {
 		true,
 	)
 
-	c.JSON(200, gin.H{
+	c.JSON(http.StatusOK, gin.H{
 		"message": "Login successful",
+		"token":   token,
 		"user": gin.H{
 			"id":    user.ID,
 			"email": user.Email,
 			"name":  user.Name,
 		},
+		"code": "LOGIN_SUCCESS",
 	})
 }
 
@@ -296,43 +439,104 @@ func (h *AuthHandler) GoogleLogin(c *gin.Context) {
 // GoogleCallback handles the callback from Google OAuth2
 func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 	code := c.Query("code")
+	if code == "" {
+		log.Printf("Error: No code provided in Google callback")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "No code provided"})
+		return
+	}
+
 	token, err := h.OAuthConfig.Exchange(c, code)
 	if err != nil {
+		log.Printf("Error exchanging Google code for token: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to exchange token: " + err.Error()})
 		return
 	}
 
 	userInfo, err := h.getUserInfoFromGoogle(token.AccessToken)
 	if err != nil {
+		log.Printf("Error getting user info from Google: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get user info: " + err.Error()})
 		return
 	}
+
+	// Make sure we have valid user info
+	if userInfo.ID == "" || userInfo.Email == "" {
+		log.Printf("Invalid user info from Google: ID or Email is empty")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user information from Google"})
+		return
+	}
+
+	log.Printf("Successfully received Google user info for: %s (%s)", userInfo.Email, userInfo.ID)
+
+	// First check if the user exists by email - they might have registered with email first
+	existingUserByEmail, _ := h.UserRepo.FindByEmail(userInfo.Email)
+
 	var user entity.User
-	// Check if user exists, create if not
-	user, err = h.UserRepo.FindUserByGoogleID(userInfo.ID)
-	if err != nil {
-		// Create new user
-		googleID := userInfo.ID
-		newUser := entity.User{
-			GoogleID: &googleID,
-			Email:    userInfo.Email,
-			Name:     userInfo.Name,
-			Picture:  userInfo.Picture,
+
+	if existingUserByEmail != nil && existingUserByEmail.GoogleID == nil {
+		// User exists with email but no Google ID - update their account to link Google ID
+		log.Printf("Updating existing email user %d to link with Google ID: %s", existingUserByEmail.ID, userInfo.ID)
+		existingUserByEmail.GoogleID = &userInfo.ID
+		existingUserByEmail.Picture = userInfo.Picture
+
+		// Since UpdateUser is missing, we'll handle this differently
+		// Save the updated user with direct DB access
+		db, dbErr := database.Connect()
+		if dbErr != nil {
+			log.Printf("Database connection error: %v", dbErr)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database connection error"})
+			return
 		}
 
-		user, err = h.UserRepo.CreateUser(newUser)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user: " + err.Error()})
+		if err := db.Save(existingUserByEmail).Error; err != nil {
+			log.Printf("Failed to update user with Google ID: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to link Google account: " + err.Error()})
 			return
+		}
+		user = *existingUserByEmail
+	} else {
+		// Try to find user by Google ID
+		user, err = h.UserRepo.FindUserByGoogleID(userInfo.ID)
+		if err != nil {
+			// Google user doesn't exist, create new user
+			log.Printf("Creating new user from Google: %s", userInfo.Email)
+
+			googleID := userInfo.ID
+			newUser := entity.User{
+				GoogleID: &googleID,
+				Email:    userInfo.Email,
+				Name:     userInfo.Name,
+				Picture:  userInfo.Picture,
+				Status:   "active", // Google-authenticated users are automatically verified
+			}
+
+			user, err = h.UserRepo.CreateUser(newUser)
+			if err != nil {
+				log.Printf("Failed to create user from Google: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user: " + err.Error()})
+				return
+			}
+
+			// Create cart for new user
+			err = h.createCartForUser(user.ID)
+			if err != nil {
+				log.Printf("Failed to create cart for new Google user %d: %v", user.ID, err)
+				// Continue anyway, cart creation is not critical for auth
+			}
+		} else {
+			log.Printf("Found existing Google user: %s (ID: %d)", user.Email, user.ID)
 		}
 	}
 
+	// Generate JWT token for the user
 	jwtToken, err := h.generateJWT(&user)
 	if err != nil {
+		log.Printf("Failed to generate JWT token: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token: " + err.Error()})
 		return
 	}
 
+	// Set authentication cookie
 	c.SetCookie(
 		"auth_token",
 		jwtToken,
@@ -343,8 +547,22 @@ func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 		true,
 	)
 
+	// Get frontend URL from environment or use default
 	frontendURL := os.Getenv("FRONTEND_URL")
-	c.Redirect(http.StatusTemporaryRedirect, frontendURL)
+	if frontendURL == "" {
+		frontendURL = "http://localhost:3000" // Fallback
+	}
+
+	// Build redirect URL with token
+	redirectURL := frontendURL + "/auth/google?token=" + jwtToken
+
+	// Special case for localhost
+	if strings.Contains(redirectURL, "localhost") && !strings.HasPrefix(redirectURL, "http://") {
+		redirectURL = strings.Replace(redirectURL, "https://", "http://", 1)
+	}
+
+	log.Printf("Redirecting Google user to: %s", redirectURL)
+	c.Redirect(http.StatusTemporaryRedirect, redirectURL)
 }
 
 // getUserInfoFromGoogle fetches user info from Google API
@@ -385,14 +603,35 @@ func (h *AuthHandler) generateJWT(user *entity.User) (string, error) {
 	return tokenString, nil
 }
 
+// GetCurrentUser returns the currently authenticated user's data
 func (h *AuthHandler) GetCurrentUser(c *gin.Context) {
-	user, exists := c.Get("user")
+	// Get user ID from context (set by AuthMiddleware)
+	userID, exists := c.Get("userID")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Not authenticated"})
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "Not authenticated",
+			"code":  "NOT_AUTHENTICATED",
+		})
 		return
 	}
 
-	c.JSON(http.StatusOK, user)
+	// Get user from database
+	user, err := h.UserRepo.FindByID(userID.(uint))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to get user data",
+			"code":  "USER_DATA_ERROR",
+		})
+		return
+	}
+
+	// Return user data (excluding sensitive fields)
+	c.JSON(http.StatusOK, gin.H{
+		"id":      user.ID,
+		"email":   user.Email,
+		"name":    user.Name,
+		"picture": user.Picture,
+	})
 }
 
 // AuthMiddleware authenticates requests using JWT token
@@ -430,26 +669,30 @@ func (h *AuthHandler) AuthMiddleware() gin.HandlerFunc {
 		}
 
 		c.Set("user", user)
+		c.Set("userID", user.ID)
 		c.Next()
 	}
 }
 
+// Logout handles user logout
 func (h *AuthHandler) Logout(c *gin.Context) {
-	// Clear the auth_token cookie
+	// Clear the auth cookie
 	c.SetCookie(
 		"auth_token",
-		"",    // empty value
-		-1,    // negative max age = delete cookie
-		"/",   // path
-		"",    // domain
-		false, // secure
-		true,  // http only
+		"",
+		-1, // expire immediately
+		"/",
+		"",
+		false,
+		true,
 	)
 
-	c.JSON(http.StatusOK, gin.H{"message": "Successfully logged out"})
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Logged out successfully",
+		"code":    "LOGOUT_SUCCESS",
+	})
 }
 
-// Helper function to generate random token
 func generateToken(length int) (string, error) {
 	bytes := make([]byte, length)
 	if _, err := cryptorand.Read(bytes); err != nil {
@@ -458,7 +701,6 @@ func generateToken(length int) (string, error) {
 	return hex.EncodeToString(bytes), nil
 }
 
-// Helper function to send confirmation email
 func sendConfirmationEmail(email, token string) error {
 	from := os.Getenv("EMAIL")
 	password := os.Getenv("EMAIL_PASSWORD")
@@ -472,10 +714,8 @@ func sendConfirmationEmail(email, token string) error {
 
 	confirmationLink := frontendURL + "/confirm-email?token=" + token
 
-	// Email subject with emoji to increase deliverability
 	subject := "🔐 Confirm Your Account"
 
-	// HTML email body
 	htmlBody := fmt.Sprintf(`
 <!DOCTYPE html>
 <html>
@@ -578,4 +818,35 @@ func sendConfirmationEmail(email, token string) error {
 	}
 
 	return nil
+}
+
+func (h *AuthHandler) userHasCart(userID uint) bool {
+	var count int64
+	db, err := database.Connect()
+	if err != nil {
+		return false
+	}
+	db.Table("carts").Where("user_id = ?", userID).Count(&count)
+	return count > 0
+}
+
+func (h *AuthHandler) createCartForUser(userID uint) error {
+	db, err := database.Connect()
+	if err != nil {
+		return err
+	}
+	var userCount int64
+	db.Table("users").Where("id = ?", userID).Count(&userCount)
+	if userCount == 0 {
+		return fmt.Errorf("user with ID %d does not exist", userID)
+	}
+
+	var cartCount int64
+	db.Table("carts").Where("user_id = ?", userID).Count(&cartCount)
+	if cartCount > 0 {
+		return nil
+	}
+
+	result := db.Exec("INSERT INTO carts (user_id, created_at, updated_at) VALUES (?, NOW(), NOW())", userID)
+	return result.Error
 }

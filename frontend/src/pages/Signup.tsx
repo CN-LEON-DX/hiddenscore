@@ -41,8 +41,8 @@ export default function Signup() {
     const handleGoogleSignUp = async () => {
         setIsLoading(true);
         try {
-            // Use the /api prefix for all requests
-            window.location.href = `/api/auth/google/login`;
+            // Chuyển hướng đến endpoint Google login
+            window.location.href = `http://localhost:8081/auth/google/login`;
         } catch (error) {
             console.error("Google sign-up error:", error);
         } finally {
@@ -61,6 +61,13 @@ export default function Signup() {
             setErrors({
                 ...errors,
                 [name]: ''
+            });
+        }
+        // Also clear general error
+        if (errors.general) {
+            setErrors({
+                ...errors,
+                general: ''
             });
         }
     };
@@ -147,8 +154,30 @@ export default function Signup() {
         } catch (error) {
             const axiosError = error as AxiosError<any>;
             
-            if (axiosError.response?.data?.error) {
-                setErrors({ ...errors, general: axiosError.response.data.error });
+            if (axiosError.response?.data) {
+                const errorData = axiosError.response.data;
+                
+                // Handle specific error codes
+                switch (errorData.code) {
+                    case 'EMAIL_ALREADY_EXISTS':
+                        setErrors({ 
+                            ...errors, 
+                            email: errorData.message || "This email is already registered.",
+                            general: "Please try logging in instead or use a different email address."
+                        });
+                        break;
+                    case 'INVALID_EMAIL_DOMAIN':
+                        setErrors({ 
+                            ...errors, 
+                            email: errorData.message || "Please use a Gmail address for registration."
+                        });
+                        break;
+                    default:
+                        setErrors({ 
+                            ...errors, 
+                            general: errorData.message || errorData.error || "An error occurred during registration." 
+                        });
+                }
             } else {
                 setErrors({ ...errors, general: 'An unexpected error occurred. Please try again.' });
             }

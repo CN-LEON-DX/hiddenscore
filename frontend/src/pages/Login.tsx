@@ -35,32 +35,40 @@ export default function Login() {
         general: ''
     });
     const { register, handleSubmit } = useForm<FormData>();
+    const [error, setError] = useState('');
 
     useEffect(() => {
-        // Kiểm tra nếu có thông báo lỗi từ URL
-        const params = new URLSearchParams(location.search);
-        const errorType = params.get('error');
+        // Check for error in URL parameters
+        const searchParams = new URLSearchParams(location.search);
+        const errorType = searchParams.get('error');
         
         if (errorType === 'email_exists') {
-            setErrors({
-                ...errors,
-                general: 'This email is already registered. Please try logging in with your password or use a different email.'
-            });
+            setError('This email is already registered with a password. Please use your email and password to log in.');
+        } else if (errorType === 'auth_failed') {
+            setError('Authentication failed. Please try again.');
         }
     }, [location]);
 
     const handleGoogleSignIn = () => {
         setIsLoading(true);
         try {
-            // Redirect to Google login with correct callback URL
-            window.location.href = `/api/auth/google/login?redirect_uri=${encodeURIComponent(window.location.origin + '/auth/google/callback')}`;
+            // Use the centralized authAPI utility
+            import('../utils/api').then(({ authAPI }) => {
+                authAPI.googleLogin();
+            }).catch(err => {
+                console.error("Failed to import authAPI:", err);
+                setErrors({
+                    ...errors,
+                    general: 'Failed to initiate Google login. Please try again.'
+                });
+                setIsLoading(false);
+            });
         } catch (error) {
             console.error("Google sign-in error:", error);
             setErrors({
                 ...errors,
                 general: 'Failed to initiate Google login. Please try again.'
             });
-        } finally {
             setIsLoading(false);
         }
     };
@@ -71,11 +79,17 @@ export default function Login() {
             ...formData,
             [name]: value
         });
-        // Clear error when user types
         if (errors[name as keyof FormErrors]) {
             setErrors({
                 ...errors,
                 [name]: ''
+            });
+        }
+        // Also clear general errors
+        if (errors.general) {
+            setErrors({
+                ...errors,
+                general: ''
             });
         }
     };
@@ -106,32 +120,68 @@ export default function Login() {
     const onSubmit = async (data: FormData) => {
         setIsLoading(true);
         
+        // Clear previous errors
         setErrors({
             email: '',
             password: '',
             general: ''
         });
         
+        // Validate form
         if (!validateForm()) {
             setIsLoading(false);
             return;
         }
         
         try {
-            const loginResponse = await api.post('/auth/login', data);
+            console.log("Attempting login with:", { 
+                email: formData.email,
+                password: formData.password 
+            });
+            
+            // Use the new authAPI login method
+            const { authAPI } = await import('../utils/api');
+            await authAPI.login(formData.email, formData.password);
+            
+            // If we get here, login was successful - redirect to home
             navigate('/');
         } catch (error) {
-            if (axios.isAxiosError(error)) {
-                const errorMessage = error.response?.data?.error;
-                if (errorMessage) {
-                    throw new Error(errorMessage); // Let ErrorBoundary handle the error
-                }
-            }
-            setErrors({
-                ...errors,
-                general: 'An unexpected error occurred. Please try again.'
-            });
             console.error('Error during login:', error);
+            
+            if (axios.isAxiosError(error)) {
+                const errorData = error.response?.data;
+                
+                if (errorData) {
+                    // Handle specific error codes
+                    switch (errorData.code) {
+                        case 'GOOGLE_ACCOUNT':
+                            setError(errorData.message || "This account uses Google Sign-In. Please use the Google button below.");
+                            setErrors({...errors, general: ''});
+                            break;
+                        case 'EMAIL_NOT_CONFIRMED':
+                            setError(errorData.message || "Please confirm your email before logging in.");
+                            setErrors({...errors, general: ''});
+                            break;
+                        case 'INVALID_INPUT':
+                            setError("Please enter a valid email and password.");
+                            setErrors({...errors, general: ''});
+                            break;
+                        case 'AUTH_FAILED':
+                            setError(errorData.message || "Invalid email or password.");
+                            setErrors({...errors, general: ''});
+                            break;
+                        default:
+                            setError(errorData.message || errorData.error || "An error occurred during login.");
+                            setErrors({...errors, general: ''});
+                    }
+                } else {
+                    setError('An unexpected error occurred. Please try again.');
+                    setErrors({...errors, general: ''});
+                }
+            } else {
+                setError('An unexpected error occurred. Please try again.');
+                setErrors({...errors, general: ''});
+            }
         } finally {
             setIsLoading(false);
         }
@@ -157,9 +207,18 @@ export default function Login() {
                 </div>
 
                 <div className="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
-                    {errors.general && (
-                        <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-md">
-                            {errors.general}
+                    {error && (
+                        <div className="rounded-md bg-red-50 p-4 mb-4">
+                            <div className="flex">
+                                <div className="flex-shrink-0">
+                                    <svg className="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                                    </svg>
+                                </div>
+                                <div className="ml-3">
+                                    <p className="text-sm text-red-700">{error}</p>
+                                </div>
+                            </div>
                         </div>
                     )}
 

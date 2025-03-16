@@ -17,14 +17,14 @@ const NotificationSuccess = ({ message = "Successfully saved!", duration = 3000 
     return (
         <div
             className="fixed top-4 right-4 z-50 flex items-center
-                 bg-white shadow-lg rounded-lg
-                 border border-green-200
+                 bg-black shadow-lg rounded-lg
+                 border border-gray-200
                  py-3 px-4
                  animate-slide-in
                  max-w-xs w-full sm:max-w-sm md:max-w-md lg:max-w-lg"
         >
-            <CheckCircleIcon className="h-6 w-6 text-green-500 mr-2" />
-            <span className="text-white font-medium">
+            <CheckCircleIcon className="h-6 w-6 text-gray-500 mr-2" />
+            <span className="text-gray-700 font-medium">
                 {message}
             </span>
         </div>

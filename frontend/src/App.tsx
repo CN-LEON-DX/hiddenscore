@@ -35,6 +35,7 @@ function App() {
             <Route path="/cart" element={<Cart />} />
             <Route path="/checkout" element={<Checkout/>} />
             <Route path="/auth/google/callback" element={<GoogleCallback />} />
+            <Route path="/auth/google" element={<GoogleCallback />} />
             <Route path="/error" element={<Error />} />
             <Route path="/404" element={<Error404 />} />
             <Route path="*" element={<Error404 />} />

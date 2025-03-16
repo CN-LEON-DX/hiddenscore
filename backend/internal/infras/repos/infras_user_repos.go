@@ -1,4 +1,4 @@
-package repository
+package repos
 
 import (
 	"backend/internal/domain/entity"

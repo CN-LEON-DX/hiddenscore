@@ -26,16 +26,39 @@ func NewCartHandler(cartRepo repository.CartRepository, productRepo repository.P
 func (h *CartHandler) GetCart(c *gin.Context) {
 	userID, exists := c.Get("userID")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "User not authenticated",
+			"code":  "NOT_AUTHENTICATED",
+		})
 		return
 	}
 
-	// Convert interface{} to uint
-	userIDUint := uint(userID.(float64))
+	// Convert userID to uint - safe type conversion based on how we store it
+	var userIDUint uint
+	switch v := userID.(type) {
+	case uint:
+		userIDUint = v
+	case float64:
+		userIDUint = uint(v)
+	case int:
+		userIDUint = uint(v)
+	case int64:
+		userIDUint = uint(v)
+	default:
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Invalid user ID type",
+			"code":  "INTERNAL_ERROR",
+		})
+		return
+	}
 
+	// Find or create cart
 	cart, err := h.CartRepo.FindActiveCartByUserID(userIDUint)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to retrieve cart: " + err.Error(),
+			"code":  "CART_ERROR",
+		})
 		return
 	}
 
@@ -43,12 +66,29 @@ func (h *CartHandler) GetCart(c *gin.Context) {
 		// No active cart, create one
 		cart, err = h.CartRepo.CreateCart(userIDUint)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "Failed to create cart: " + err.Error(),
+				"code":  "CART_ERROR",
+			})
 			return
 		}
 	}
 
-	c.JSON(http.StatusOK, cart)
+	// Get cart items with product details
+	cartItems, err := h.CartRepo.GetCartItemsWithProductDetails(cart.ID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to retrieve cart items: " + err.Error(),
+			"code":  "CART_ITEMS_ERROR",
+		})
+		return
+	}
+
+	// Return cart with items
+	c.JSON(http.StatusOK, gin.H{
+		"cart":  cart,
+		"items": cartItems,
+	})
 }
 
 // AddItemRequest represents the request body for adding an item to the cart

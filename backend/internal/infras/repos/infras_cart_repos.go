@@ -1,10 +1,12 @@
-package repository
+package repos
 
 import (
 	"backend/internal/domain/entity"
+	domainrepo "backend/internal/domain/repository"
 	"errors"
-	"gorm.io/gorm"
 	"time"
+
+	"gorm.io/gorm"
 )
 
 type CartRepository struct {
@@ -36,6 +38,7 @@ func (r *CartRepository) FindActiveCartByUserID(userID uint) (*entity.Cart, erro
 func (r *CartRepository) CreateCart(userID uint) (*entity.Cart, error) {
 	cart := &entity.Cart{
 		UserID: userID,
+		Status: 1, // Using integer status (1 = active)
 		Active: true,
 	}
 
@@ -99,6 +102,37 @@ func (r *CartRepository) GetCartItems(cartID uint) ([]entity.CartItem, error) {
 func (r *CartRepository) CloseCart(cartID uint) error {
 	return r.DB.Model(&entity.Cart{}).Where("id = ?", cartID).Updates(map[string]interface{}{
 		"active":     false,
+		"status":     2, // 2 = completed
 		"updated_at": time.Now(),
 	}).Error
+}
+
+// GetCartItemsWithProductDetails gets cart items with product details
+func (r *CartRepository) GetCartItemsWithProductDetails(cartID uint) ([]domainrepo.CartItemWithProduct, error) {
+	var cartItems []entity.CartItem
+	var result []domainrepo.CartItemWithProduct
+
+	// Get cart items with their associated products
+	if err := r.DB.Where("cart_id = ?", cartID).Preload("Product").Find(&cartItems).Error; err != nil {
+		return nil, err
+	}
+
+	// Map to the domain repository type
+	for _, item := range cartItems {
+		// Calculate subtotal
+		subtotal := float64(item.Quantity) * item.Product.Price
+
+		// Create cart item with product
+		itemWithProduct := domainrepo.CartItemWithProduct{
+			ID:       item.ID,
+			CartID:   item.CartID,
+			Product:  item.Product,
+			Quantity: item.Quantity,
+			Subtotal: subtotal,
+		}
+
+		result = append(result, itemWithProduct)
+	}
+
+	return result, nil
 }

@@ -23,7 +23,6 @@ func Connect() (*gorm.DB, error) {
 	port := os.Getenv("POSTGRES_PORT")
 	password := os.Getenv("POSTGRES_PASSWORD")
 
-	// Check if all required connection parameters are set
 	if host == "" || dbname == "" || user == "" || port == "" || password == "" {
 		return nil, fmt.Errorf("missing database connection parameters")
 	}
@@ -34,7 +33,6 @@ func Connect() (*gorm.DB, error) {
 		return nil, fmt.Errorf("database connection error: %w", err)
 	}
 
-	// Test connection
 	sqlDB, err := db.DB()
 	if err != nil {
 		return nil, fmt.Errorf("error getting SQL DB: %w", err)
@@ -45,7 +43,6 @@ func Connect() (*gorm.DB, error) {
 		return nil, fmt.Errorf("database ping error: %w", err)
 	}
 
-	// Auto migrate to update schema
 	if err := db.AutoMigrate(&entity.User{}); err != nil {
 		log.Printf("Error auto migrating: %v", err)
 	}

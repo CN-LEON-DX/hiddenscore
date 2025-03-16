@@ -12,6 +12,7 @@ const Home = () => {
 
             </div>
                 <div className="relative h-screen w-full overflow-hidden">
+                    {/* Video Background */}
                     <video
                         className="absolute top-0 left-0 min-h-full min-w-full object-cover"
                         autoPlay
@@ -22,8 +23,10 @@ const Home = () => {
                         <source src={videoSource} type="video/mp4" />
                     </video>
 
+                    {/* Dark overlay to make text more readable */}
                     <div className="absolute top-0 left-0 h-full w-full bg-black/50"></div>
 
+                    {/* Content overlay */}
                     <div className="absolute top-0 left-0 flex h-full w-full items-center justify-center">
                         <div className="text-center px-4">
                             <h1 className="text-4xl font-bold tracking-tight sm:text-5xl text-white">
@@ -44,6 +47,7 @@ const Home = () => {
                     </div>
                 </div>
                 
+                {/* Featured Products Section */}
                 <div className="mt-8">
                     <ListProduct />
                 </div>

@@ -9,7 +9,6 @@ export default {
     extend: {
       fontFamily: {
         'sans': ['"Playwrite IT Moderna"', 'system-ui', '-apple-system', 'sans-serif'],
-        // You can keep other custom fonts if needed
         'heading': ['"Playwrite IT Moderna"', 'serif'],
       },
     },

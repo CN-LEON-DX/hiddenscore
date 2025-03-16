@@ -40,18 +40,11 @@ func main() {
 
 	// CORS
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{os.Getenv("FRONTEND_URL"), "https://www.fuzzyai.click"},
+		AllowOrigins:     []string{os.Getenv("FRONTEND_URL"), "http://localhost:3000"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
 		AllowCredentials: true,
 	}))
-
-	// Serve static files from the static directory
-	r.Static("/static", "./static")
-	r.StaticFile("/", "./static/index.html")
-	r.NoRoute(func(c *gin.Context) {
-		c.File("./static/index.html")
-	})
 
 	// Public routes
 	r.GET("/auth/google/login", authHandler.GoogleLogin)
@@ -60,21 +53,27 @@ func main() {
 	r.POST("/auth/register", authHandler.RegisterWithGmail)
 	r.GET("/auth/confirm", authHandler.ConfirmEmail)
 	r.POST("/auth/login", authHandler.LoginWithGmail)
+	r.POST("/auth/logout", authHandler.Logout)
 
-	r.GET("/auth/logout", authHandler.Logout)
+	// Product routes
 	r.GET("/products", productHandler.GetProducts)
 	r.GET("/products/detail/:id", productHandler.GetProductByID)
 	r.POST("/products/search/", productHandler.SearchProducts)
-	r.POST("/cart/checkout", cartHandler.Checkout)
 
+	// Protected routes
 	auth := r.Group("/")
 	auth.Use(authHandler.AuthMiddleware())
 	{
-		auth.GET("/users", func(c *gin.Context) {
-			userHandler.GetUsers(c.Writer, c.Request)
-		})
+		// User routes
+		auth.GET("/users", userHandler.GetUsers)
+		auth.GET("/user/me", authHandler.GetCurrentUser)
 
-		auth.GET("/me", authHandler.GetCurrentUser)
+		// Cart routes
+		auth.GET("/cart", cartHandler.GetCart)
+		auth.POST("/cart/add", cartHandler.AddToCart)
+		auth.POST("/cart/remove", cartHandler.RemoveFromCart)
+		auth.POST("/cart/update", cartHandler.UpdateCartItem)
+		auth.POST("/cart/checkout", cartHandler.Checkout)
 	}
 	port := os.Getenv("PORT")
 	if port == "" {

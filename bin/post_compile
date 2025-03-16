@@ -1,6 +1,0 @@
-#!/usr/bin/env bash
-
-# Make sure the app binary is executable
-chmod +x bin/app
-
-echo "Post-compile: Made bin/app executable" 

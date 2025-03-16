@@ -1,11 +1,12 @@
-package repository
+package repos
 
 import (
 	"backend/internal/domain/entity"
 	"backend/internal/infras/interfaces"
 	"errors"
-	"gorm.io/gorm"
 	"time"
+
+	"gorm.io/gorm"
 )
 
 type ProductRepository struct {
