@@ -56,7 +56,6 @@ export default function Login() {
             import('../utils/api').then(({ authAPI }) => {
                 authAPI.googleLogin();
             }).catch(err => {
-                console.error("Failed to import authAPI:", err);
                 setErrors({
                     ...errors,
                     general: 'Failed to initiate Google login. Please try again.'
@@ -64,7 +63,6 @@ export default function Login() {
                 setIsLoading(false);
             });
         } catch (error) {
-            console.error("Google sign-in error:", error);
             setErrors({
                 ...errors,
                 general: 'Failed to initiate Google login. Please try again.'
@@ -134,25 +132,19 @@ export default function Login() {
         }
         
         try {
-            console.log("Attempting login with:", { 
-                email: formData.email,
-                password: formData.password 
-            });
-            
-            // Use the new authAPI login method
+            // Use the authAPI login method without any logging
             const { authAPI } = await import('../utils/api');
             await authAPI.login(formData.email, formData.password);
             
             // If we get here, login was successful - redirect to home
             navigate('/');
         } catch (error) {
-            console.error('Error during login:', error);
+            // No error logging at all
             
             if (axios.isAxiosError(error)) {
                 const errorData = error.response?.data;
                 
                 if (errorData) {
-                    // Handle specific error codes
                     switch (errorData.code) {
                         case 'GOOGLE_ACCOUNT':
                             setError(errorData.message || "This account uses Google Sign-In. Please use the Google button below.");
@@ -293,9 +285,9 @@ export default function Login() {
 
                     <div className="mt-6 flex flex-col space-y-2">
                         <p className="text-center text-sm text-gray-600">
-                            <a href="/forgot-password" className="font-semibold text-indigo-600 hover:text-indigo-500">
+                            <Link to="/forgot-password" className="font-semibold text-indigo-600 hover:text-indigo-500">
                                 Forgot password?
-                            </a>
+                            </Link>
                         </p>
 
                         <p className="text-center text-sm text-gray-600">

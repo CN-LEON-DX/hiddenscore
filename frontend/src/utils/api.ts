@@ -17,11 +17,13 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
-    
+    // No error logging, just handle the error
     if (error.response?.status === 401) {
       if (!window.location.pathname.includes('/login') && 
           !window.location.pathname.includes('/signup') &&
-          !window.location.pathname.includes('/auth/google')) {
+          !window.location.pathname.includes('/auth/google') &&
+          !window.location.pathname.includes('/forgot-password') &&
+          !window.location.pathname.includes('/reset-password')) {
         
         localStorage.removeItem('auth_token');
         localStorage.removeItem('user');
@@ -59,7 +61,6 @@ export const authAPI = {
         password 
       });
       
-      // Store token if present in response
       if (response.data?.token) {
         localStorage.setItem('auth_token', response.data.token);
       }
@@ -70,7 +71,6 @@ export const authAPI = {
   },
   
   googleLogin: () => {
-    // Redirect to the Google OAuth endpoint
     window.location.href = `${apiUrl}/auth/google/login`;
   },
   
@@ -78,19 +78,32 @@ export const authAPI = {
     try {
       await api.post('/auth/logout');
     } finally {
-      // Always clear local storage
       localStorage.removeItem('auth_token');
       localStorage.removeItem('user');
     }
   },
   
   getCurrentUser: async () => {
-    // Use the correct path that matches the backend
     return api.get('/user/me');
+  },
+  
+  forgotPassword: async (email: string) => {
+    return api.post('/auth/forgot-password', { email: email.trim() });
+  },
+  
+  validateResetToken: async (token: string) => {
+    return api.post('/auth/validate-reset-token', { token });
+  },
+  
+  resetPassword: async (token: string, password: string) => {
+    return api.post('/auth/reset-password', { token, password });
+  },
+  
+  changePassword: async (currentPassword: string, newPassword: string) => {
+    return api.post('/auth/change-password', { currentPassword, newPassword });
   }
 };
 
-// Re-export existing API functions
 export const fetchProducts = async () => {
   try {
     const response = await api.get('/products');

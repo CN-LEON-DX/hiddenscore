@@ -54,6 +54,10 @@ func main() {
 	r.GET("/auth/confirm", authHandler.ConfirmEmail)
 	r.POST("/auth/login", authHandler.LoginWithGmail)
 	r.POST("/auth/logout", authHandler.Logout)
+	// Password reset routes
+	r.POST("/auth/forgot-password", authHandler.ForgotPassword)
+	r.POST("/auth/validate-reset-token", authHandler.ValidateResetToken)
+	r.POST("/auth/reset-password", authHandler.ResetPassword)
 
 	// Product routes
 	r.GET("/products", productHandler.GetProducts)
@@ -67,6 +71,9 @@ func main() {
 		// User routes
 		auth.GET("/users", userHandler.GetUsers)
 		auth.GET("/user/me", authHandler.GetCurrentUser)
+		auth.POST("/auth/change-password", authHandler.ChangePassword)
+		auth.GET("/user/orders", userHandler.GetUserOrders)
+		auth.PUT("/user/profile", userHandler.UpdateProfile)
 
 		// Cart routes
 		auth.GET("/cart", cartHandler.GetCart)

@@ -13,6 +13,12 @@ import Checkout from "./pages/Checkout";
 import Error404 from './pages/Error404';
 import Error from './pages/Error';
 import GoogleCallback from './pages/GoogleCallback';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
+import Profile from './pages/Profile';
+import ChangePassword from './pages/ChangePassword';
+import OrderHistory from './pages/OrderHistory';
+import Settings from './pages/Settings';
 import ErrorBoundary from './components/ErrorBoundary';
 import { CartProvider } from './context/CartContext';
 import { ToastContainer } from 'react-toastify';
@@ -30,6 +36,12 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
             <Route path="/confirm-email" element={<ConfirmEmail />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/change-password" element={<ChangePassword />} />
+            <Route path="/order-history" element={<OrderHistory />} />
+            <Route path="/settings" element={<Settings />} />
             <Route path="/products" element={<Products />} />
             <Route path="/products/detail/:productId" element={<DetailProduct />} />
             <Route path="/cart" element={<Cart />} />

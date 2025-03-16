@@ -290,7 +290,7 @@ func (h *AuthHandler) LoginWithGmail(c *gin.Context) {
 	if err != nil || user == nil {
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"error":   "Authentication failed",
-			"message": "Invalid email or password. Please check your credentials and try again.",
+			"message": "Invalid email or password. Please check  again.",
 			"code":    "AUTH_FAILED",
 		})
 		return
@@ -380,7 +380,7 @@ func (h *AuthHandler) LoginWithGmail(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"error":   "Authentication failed",
-			"message": "Invalid email or password. Please check your credentials and try again.",
+			"message": "Invalid email or password. Please check again.",
 			"code":    "AUTH_FAILED",
 		})
 		return
@@ -849,4 +849,414 @@ func (h *AuthHandler) createCartForUser(userID uint) error {
 
 	result := db.Exec("INSERT INTO carts (user_id, created_at, updated_at) VALUES (?, NOW(), NOW())", userID)
 	return result.Error
+}
+
+// ForgotPassword handles password reset requests
+func (h *AuthHandler) ForgotPassword(c *gin.Context) {
+	var input struct {
+		Email string `json:"email" binding:"required,email"`
+	}
+
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Invalid input",
+			"message": "Please provide a valid email address.",
+			"code":    "INVALID_INPUT",
+		})
+		return
+	}
+
+	// Check if user exists
+	user, err := h.UserRepo.FindByEmail(input.Email)
+	if err != nil || user == nil {
+		// Don't reveal whether the email exists for security
+		c.JSON(http.StatusOK, gin.H{
+			"message": "If your email is registered with us, we'll send you instructions to reset your password.",
+		})
+		return
+	}
+
+	// Generate reset token
+	resetToken, err := generateToken(32)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Token generation failed",
+			"message": "We couldn't generate your reset token. Please try again later.",
+			"code":    "TOKEN_GENERATION_FAILED",
+		})
+		return
+	}
+
+	// Store token in tmp table
+	tmpReset := &models.TmpUser{
+		UserID:      user.ID,
+		Status:      "reset_password",
+		TokenRemain: resetToken,
+		CreatedAt:   time.Now(),
+	}
+
+	if err := h.tmpRepo.Create(tmpReset); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Reset record creation failed",
+			"message": "We couldn't create your reset record. Please try again later.",
+			"code":    "RESET_RECORD_FAILED",
+		})
+		return
+	}
+
+	// Send reset email
+	if err := h.sendPasswordResetEmail(user.Email, resetToken); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Email sending failed",
+			"message": "We couldn't send the reset email. Please try again later.",
+			"code":    "EMAIL_SENDING_FAILED",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "If your email is registered with us, we'll send you instructions to reset your password.",
+	})
+}
+
+// ValidateResetToken validates a password reset token
+func (h *AuthHandler) ValidateResetToken(c *gin.Context) {
+	var input struct {
+		Token string `json:"token" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Invalid input",
+			"message": "Reset token is required.",
+			"code":    "INVALID_INPUT",
+		})
+		return
+	}
+
+	// Find tmp record with this token
+	tmpReset, err := h.tmpRepo.FindByToken(input.Token)
+	if err != nil || tmpReset == nil || tmpReset.Status != "reset_password" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Invalid token",
+			"message": "The reset token is invalid or has expired.",
+			"code":    "INVALID_TOKEN",
+		})
+		return
+	}
+
+	// Check if token is expired (30 minutes)
+	if time.Since(tmpReset.CreatedAt) > 30*time.Minute {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Token expired",
+			"message": "The reset token has expired. Please request a new one.",
+			"code":    "TOKEN_EXPIRED",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Token is valid.",
+	})
+}
+
+// ResetPassword resets a user's password using a valid token
+func (h *AuthHandler) ResetPassword(c *gin.Context) {
+	var input struct {
+		Token    string `json:"token" binding:"required"`
+		Password string `json:"password" binding:"required,min=8"`
+	}
+
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Invalid input",
+			"message": "Please provide both a valid token and a new password (min 8 characters).",
+			"code":    "INVALID_INPUT",
+		})
+		return
+	}
+
+	// Find tmp record with this token
+	tmpReset, err := h.tmpRepo.FindByToken(input.Token)
+	if err != nil || tmpReset == nil || tmpReset.Status != "reset_password" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Invalid token",
+			"message": "The reset token is invalid or has expired.",
+			"code":    "INVALID_TOKEN",
+		})
+		return
+	}
+
+	// Check if token is expired (30 minutes)
+	if time.Since(tmpReset.CreatedAt) > 30*time.Minute {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Token expired",
+			"message": "The reset token has expired. Please request a new one.",
+			"code":    "TOKEN_EXPIRED",
+		})
+		return
+	}
+
+	// Get the user
+	user, err := h.UserRepo.GetUserByID(tmpReset.UserID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "User not found",
+			"message": "We couldn't find your account. Please try again later.",
+			"code":    "USER_NOT_FOUND",
+		})
+		return
+	}
+
+	// Hash the new password
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Password processing failed",
+			"message": "We couldn't process your new password. Please try again later.",
+			"code":    "PASSWORD_PROCESSING_ERROR",
+		})
+		return
+	}
+
+	// Create a models.User for Update
+	modelUser := &models.User{
+		ID:       user.ID,
+		Email:    user.Email,
+		Password: string(hashedPassword),
+		Name:     user.Name,
+		Status:   user.Status,
+	}
+	if user.GoogleID != nil {
+		modelUser.GoogleID = *user.GoogleID
+	}
+	if user.Picture != "" {
+		modelUser.Picture = user.Picture
+	}
+
+	// Update the user's password
+	if err := h.UserRepo.Update(modelUser); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Password update failed",
+			"message": "We couldn't update your password. Please try again later.",
+			"code":    "PASSWORD_UPDATE_FAILED",
+		})
+		return
+	}
+
+	// Mark the token as used
+	tmpReset.Status = "used"
+	if err := h.tmpRepo.Update(tmpReset); err != nil {
+		// Just log this error but continue
+		log.Printf("Failed to mark reset token as used: %v", err)
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Your password has been reset successfully. You can now log in with your new password.",
+	})
+}
+
+// ChangePassword handles password changes for authenticated users
+func (h *AuthHandler) ChangePassword(c *gin.Context) {
+	// Get current user from middleware
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error":   "Authentication required",
+			"message": "You must be logged in to change your password.",
+			"code":    "AUTH_REQUIRED",
+		})
+		return
+	}
+
+	var input struct {
+		CurrentPassword string `json:"currentPassword" binding:"required"`
+		NewPassword     string `json:"newPassword" binding:"required,min=8"`
+	}
+
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Invalid input",
+			"message": "Please provide your current password and a new password (min 8 characters).",
+			"code":    "INVALID_INPUT",
+		})
+		return
+	}
+
+	// Get the user
+	user, err := h.UserRepo.GetUserByID(userID.(uint))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "User not found",
+			"message": "We couldn't find your account. Please try again later.",
+			"code":    "USER_NOT_FOUND",
+		})
+		return
+	}
+
+	// Verify current password
+	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(input.CurrentPassword))
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error":   "Invalid password",
+			"message": "Your current password is incorrect.",
+			"code":    "INVALID_CURRENT_PASSWORD",
+		})
+		return
+	}
+
+	// Hash the new password
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(input.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Password processing failed",
+			"message": "We couldn't process your new password. Please try again later.",
+			"code":    "PASSWORD_PROCESSING_ERROR",
+		})
+		return
+	}
+
+	// Create a models.User for Update
+	modelUser := &models.User{
+		ID:       user.ID,
+		Email:    user.Email,
+		Password: string(hashedPassword),
+		Name:     user.Name,
+		Status:   user.Status,
+	}
+	if user.GoogleID != nil {
+		modelUser.GoogleID = *user.GoogleID
+	}
+	if user.Picture != "" {
+		modelUser.Picture = user.Picture
+	}
+
+	// Update the user's password
+	if err := h.UserRepo.Update(modelUser); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Password update failed",
+			"message": "We couldn't update your password. Please try again later.",
+			"code":    "PASSWORD_UPDATE_FAILED",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Your password has been changed successfully.",
+	})
+}
+
+// sendPasswordResetEmail sends a password reset email to the user
+func (h *AuthHandler) sendPasswordResetEmail(email, token string) error {
+	from := os.Getenv("EMAIL")
+	password := os.Getenv("EMAIL_PASSWORD")
+	host := os.Getenv("SMTP_HOST")
+	port := os.Getenv("SMTP_PORT")
+	frontendURL := os.Getenv("FRONTEND_URL")
+
+	if from == "" || password == "" || host == "" || port == "" || frontendURL == "" {
+		return fmt.Errorf("missing email configuration environment variables")
+	}
+
+	resetLink := frontendURL + "/reset-password?token=" + token
+
+	subject := "🔐 Reset Your Password"
+
+	htmlBody := fmt.Sprintf(`
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Password Reset</title>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; }
+        .container { padding: 20px; border: 1px solid #ddd; border-radius: 5px; }
+        .header { background-color: #f8f9fa; padding: 10px; text-align: center; }
+        .button { display: inline-block; background-color: #007bff; color: white; padding: 10px 20px; 
+                 text-decoration: none; border-radius: 5px; margin: 20px 0; }
+        .footer { font-size: 12px; color: #777; margin-top: 20px; text-align: center; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>Reset Your Password</h2>
+        </div>
+        <p>Hello,</p>
+        <p>You recently requested to reset your password. Click the link below to set a new password:</p>
+        <p style="text-align: center;">
+            <a href="%s" class="button">Reset Password</a>
+        </p>
+        <p>Or you can copy and paste this URL into your browser:</p>
+        <p>%s</p>
+        <p>This link will expire in 30 minutes.</p>
+        <p>If you did not request a password reset, please ignore this email.</p>
+        <div class="footer">
+            <p>© 2025 Hidden Score. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>
+`, resetLink, resetLink)
+
+	// Set up authentication information
+	auth := smtp.PlainAuth("", from, password, host)
+
+	// TLS config
+	tlsconfig := &tls.Config{
+		InsecureSkipVerify: true,
+		ServerName:         host,
+	}
+
+	// Set up the email headers and body
+	to := []string{email}
+	mime := "MIME-version: 1.0;\nContent-Type: text/html; charset=\"UTF-8\";\n\n"
+	headers := "To: " + email + "\r\n" +
+		"From: " + from + "\r\n" +
+		"Subject: " + subject + "\r\n" +
+		mime
+
+	// Connect to the server, authenticate, and send the email
+	conn, err := tls.Dial("tcp", host+":"+port, tlsconfig)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	c, err := smtp.NewClient(conn, host)
+	if err != nil {
+		return err
+	}
+	defer c.Quit()
+
+	if err = c.Auth(auth); err != nil {
+		return err
+	}
+
+	if err = c.Mail(from); err != nil {
+		return err
+	}
+
+	for _, addr := range to {
+		if err = c.Rcpt(addr); err != nil {
+			return err
+		}
+	}
+
+	w, err := c.Data()
+	if err != nil {
+		return err
+	}
+
+	_, err = w.Write([]byte(headers + "\r\n" + htmlBody))
+	if err != nil {
+		return err
+	}
+
+	err = w.Close()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
