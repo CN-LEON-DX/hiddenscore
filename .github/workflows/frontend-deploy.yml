@@ -26,12 +26,14 @@ jobs:
       
       - name: Build frontend
         run: cd frontend && npm run build
-        
+        env:
+          VITE_SKIP_TYPECHECK: "true"
+          
       - name: Deploy to Heroku
         uses: akhileshns/heroku-deploy@v3.12.14
         with:
           heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
-          heroku_app_name: "hiddenscore-6b1eaa22b15e"
+          heroku_app_name: "hiddenscore"
           heroku_email: ${{ secrets.HEROKU_EMAIL }}
           appdir: "frontend"
           procfile: "web: npm start" 

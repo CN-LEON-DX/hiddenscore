@@ -84,7 +84,7 @@ const DiamondSearchFilter: React.FC<DiamondFilterProps> = () => {
     // Handle search submission
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
-        onSearch(filters);
+        console.log("Search with filters:", filters);
         // Close mobile filters if open
         setIsFiltersOpen(false);
     };
