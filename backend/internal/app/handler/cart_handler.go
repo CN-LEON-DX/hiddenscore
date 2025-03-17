@@ -24,7 +24,8 @@ func NewCartHandler(cartRepo repository.CartRepository, productRepo repository.P
 
 // GetCart gets the user's active cart
 func (h *CartHandler) GetCart(c *gin.Context) {
-	userID, exists := c.Get("userID")
+	// Get user from context
+	userObj, exists := c.Get("user")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"error": "User not authenticated",
@@ -33,20 +34,24 @@ func (h *CartHandler) GetCart(c *gin.Context) {
 		return
 	}
 
-	// Convert userID to uint - safe type conversion based on how we store it
+	// Get userID from user object
 	var userIDUint uint
-	switch v := userID.(type) {
-	case uint:
-		userIDUint = v
-	case float64:
-		userIDUint = uint(v)
-	case int:
-		userIDUint = uint(v)
-	case int64:
-		userIDUint = uint(v)
+	switch u := userObj.(type) {
+	case entity.User:
+		userIDUint = u.ID
+	case *entity.User:
+		if u != nil {
+			userIDUint = u.ID
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "Invalid user data",
+				"code":  "INTERNAL_ERROR",
+			})
+			return
+		}
 	default:
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Invalid user ID type",
+			"error": "Invalid user data type",
 			"code":  "INTERNAL_ERROR",
 		})
 		return
@@ -99,14 +104,38 @@ type AddItemRequest struct {
 
 // AddToCart adds an item to the cart
 func (h *CartHandler) AddToCart(c *gin.Context) {
-	userID, exists := c.Get("userID")
+	// Get user from context
+	userObj, exists := c.Get("user")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "User not authenticated",
+			"code":  "NOT_AUTHENTICATED",
+		})
 		return
 	}
 
-	// Convert interface{} to uint
-	userIDUint := uint(userID.(float64))
+	// Get userID from user object
+	var userIDUint uint
+	switch u := userObj.(type) {
+	case entity.User:
+		userIDUint = u.ID
+	case *entity.User:
+		if u != nil {
+			userIDUint = u.ID
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "Invalid user data",
+				"code":  "INTERNAL_ERROR",
+			})
+			return
+		}
+	default:
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Invalid user data type",
+			"code":  "INTERNAL_ERROR",
+		})
+		return
+	}
 
 	var request AddItemRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
@@ -174,9 +203,36 @@ type UpdateItemRequest struct {
 
 // UpdateCartItem updates the quantity of an item in the cart
 func (h *CartHandler) UpdateCartItem(c *gin.Context) {
-	userID, exists := c.Get("userID")
+	// Get user from context
+	userObj, exists := c.Get("user")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "User not authenticated",
+			"code":  "NOT_AUTHENTICATED",
+		})
+		return
+	}
+
+	// Get userID from user object
+	var userIDUint uint
+	switch u := userObj.(type) {
+	case entity.User:
+		userIDUint = u.ID
+	case *entity.User:
+		if u != nil {
+			userIDUint = u.ID
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "Invalid user data",
+				"code":  "INTERNAL_ERROR",
+			})
+			return
+		}
+	default:
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Invalid user data type",
+			"code":  "INTERNAL_ERROR",
+		})
 		return
 	}
 
@@ -201,7 +257,6 @@ func (h *CartHandler) UpdateCartItem(c *gin.Context) {
 	}
 
 	// Get updated cart
-	userIDUint := uint(userID.(float64))
 	updatedCart, err := h.CartRepo.FindActiveCartByUserID(userIDUint)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -213,9 +268,36 @@ func (h *CartHandler) UpdateCartItem(c *gin.Context) {
 
 // RemoveFromCart removes an item from the cart
 func (h *CartHandler) RemoveFromCart(c *gin.Context) {
-	userID, exists := c.Get("userID")
+	// Get user from context
+	userObj, exists := c.Get("user")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "User not authenticated",
+			"code":  "NOT_AUTHENTICATED",
+		})
+		return
+	}
+
+	// Get userID from user object
+	var userIDUint uint
+	switch u := userObj.(type) {
+	case entity.User:
+		userIDUint = u.ID
+	case *entity.User:
+		if u != nil {
+			userIDUint = u.ID
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "Invalid user data",
+				"code":  "INTERNAL_ERROR",
+			})
+			return
+		}
+	default:
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Invalid user data type",
+			"code":  "INTERNAL_ERROR",
+		})
 		return
 	}
 
@@ -234,7 +316,6 @@ func (h *CartHandler) RemoveFromCart(c *gin.Context) {
 	}
 
 	// Get updated cart
-	userIDUint := uint(userID.(float64))
 	updatedCart, err := h.CartRepo.FindActiveCartByUserID(userIDUint)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -246,14 +327,38 @@ func (h *CartHandler) RemoveFromCart(c *gin.Context) {
 
 // ClearCart clears all items from the cart
 func (h *CartHandler) ClearCart(c *gin.Context) {
-	userID, exists := c.Get("userID")
+	// Get user from context
+	userObj, exists := c.Get("user")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "User not authenticated",
+			"code":  "NOT_AUTHENTICATED",
+		})
 		return
 	}
 
-	// Convert interface{} to uint
-	userIDUint := uint(userID.(float64))
+	// Get userID from user object
+	var userIDUint uint
+	switch u := userObj.(type) {
+	case entity.User:
+		userIDUint = u.ID
+	case *entity.User:
+		if u != nil {
+			userIDUint = u.ID
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "Invalid user data",
+				"code":  "INTERNAL_ERROR",
+			})
+			return
+		}
+	default:
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Invalid user data type",
+			"code":  "INTERNAL_ERROR",
+		})
+		return
+	}
 
 	cart, err := h.CartRepo.FindActiveCartByUserID(userIDUint)
 	if err != nil {
@@ -280,15 +385,38 @@ func (h *CartHandler) ClearCart(c *gin.Context) {
 
 // Checkout processes the checkout of the current cart
 func (h *CartHandler) Checkout(c *gin.Context) {
-	// Get user ID from context
-	userID, exists := c.Get("userID")
+	// Get user from context
+	userObj, exists := c.Get("user")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "User not authenticated",
+			"code":  "NOT_AUTHENTICATED",
+		})
 		return
 	}
 
-	// Convert interface{} to uint
-	userIDUint := uint(userID.(float64))
+	// Get userID from user object
+	var userIDUint uint
+	switch u := userObj.(type) {
+	case entity.User:
+		userIDUint = u.ID
+	case *entity.User:
+		if u != nil {
+			userIDUint = u.ID
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "Invalid user data",
+				"code":  "INTERNAL_ERROR",
+			})
+			return
+		}
+	default:
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Invalid user data type",
+			"code":  "INTERNAL_ERROR",
+		})
+		return
+	}
 
 	// Get active cart
 	cart, err := h.CartRepo.FindActiveCartByUserID(userIDUint)
