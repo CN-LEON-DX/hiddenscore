@@ -18,6 +18,19 @@ export default defineConfig(({ mode }: { mode: string }) => {
           rewrite: (path: string) => path.replace(/^\/api/, '')
         }
       }
+    },
+    // Xử lý lỗi crypto.getRandomValues
+    optimizeDeps: {
+      esbuildOptions: {
+        define: {
+          global: 'globalThis'
+        }
+      }
+    },
+    build: {
+      // Bỏ qua cảnh báo
+      reportCompressedSize: false,
+      chunkSizeWarningLimit: 1600,
     }
   }
 })

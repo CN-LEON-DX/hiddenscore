@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "concurrently \"vite\" \"npx tailwindcss -i ./src/styles/input.css -o ./src/styles/output.css --watch\"",
-    "build": "tailwindcss -i ./src/styles/input.css -o ./src/styles/output.css && vite build",
+    "build": "tailwindcss -i ./src/styles/input.css -o ./src/styles/output.css && node --require ./vite.crypto.js ./node_modules/vite/bin/vite.js build",
     "lint": "eslint .",
     "preview": "vite preview",
     "start": "vite preview --host 0.0.0.0 --port $PORT"
