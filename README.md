@@ -12,7 +12,7 @@ A modern basic web application with comprehensive user management base on Clean 
 - **Google OAuth Integration**: Allow users to sign in with their Google accounts
 - **Responsive Design**: Modern UI that works across desktop and mobile devices
 - **Cart System**: Shopping cart functionality for e-commerce features
-- **Some features AI will be add soon: Loading ...
+- **Some features AI will be add soon**: Loading ...
 
 ##  Prerequisites
 
