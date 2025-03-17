@@ -1,0 +1,42 @@
+name: Deploy Backend to Heroku
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-deploy.yml'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+          
+      - name: Go Modules Cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+      
+      - name: Build Go Application
+        run: cd backend && go build -o app cmd/api/main.go
+        
+      - name: Deploy to Heroku
+        uses: akhileshns/heroku-deploy@v3.12.14
+        with:
+          heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
+          heroku_app_name: "hiddenscore-api-ee59573079cd"
+          heroku_email: ${{ secrets.HEROKU_EMAIL }}
+          appdir: "backend"
+          procfile: "web: ./app" 

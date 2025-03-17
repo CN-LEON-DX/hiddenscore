@@ -7,8 +7,11 @@
       "npm": "8.x"
     },
     "scripts": {
-      "start": "cd backend && go run cmd/api/main.go",
-      "build": "cd frontend && npm install && npm run build && cd ../backend && go build -o app cmd/api/main.go",
+      "start": "cd frontend && npm start",
+      "start:backend": "cd backend && go run cmd/api/main.go",
+      "build:frontend": "cd frontend && npm install && npm run build",
+      "build:backend": "cd backend && go build -o app cmd/api/main.go",
+      "build": "npm run build:frontend",
       "postinstall": "npm run build"
     },
     "cacheDirectories": ["frontend/node_modules"]

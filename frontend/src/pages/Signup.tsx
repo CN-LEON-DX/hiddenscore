@@ -3,6 +3,7 @@ import { Helmet } from 'react-helmet';
 import { useNavigate } from 'react-router-dom';
 import React from 'react';
 import api from '../utils/api';
+import { authAPI } from '../utils/api';
 import  { AxiosError } from 'axios';
 
 type FormData = {
@@ -41,8 +42,8 @@ export default function Signup() {
     const handleGoogleSignUp = async () => {
         setIsLoading(true);
         try {
-            // Chuyển hướng đến endpoint Google login
-            window.location.href = `http://localhost:8081/auth/google/login`;
+            // Redirect to Google login endpoint
+            authAPI.googleLogin();
         } catch (error) {
             console.error("Google sign-up error:", error);
         } finally {

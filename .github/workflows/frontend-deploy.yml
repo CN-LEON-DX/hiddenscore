@@ -1,0 +1,37 @@
+name: Deploy Frontend to Heroku
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/frontend-deploy.yml'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16'
+          cache: 'npm'
+          cache-dependency-path: 'frontend/package-lock.json'
+      
+      - name: Install frontend dependencies
+        run: cd frontend && npm ci
+      
+      - name: Build frontend
+        run: cd frontend && npm run build
+        
+      - name: Deploy to Heroku
+        uses: akhileshns/heroku-deploy@v3.12.14
+        with:
+          heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
+          heroku_app_name: "hiddenscore-6b1eaa22b15e"
+          heroku_email: ${{ secrets.HEROKU_EMAIL }}
+          appdir: "frontend"
+          procfile: "web: npm start" 
