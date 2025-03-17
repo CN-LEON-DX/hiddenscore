@@ -1,32 +1,58 @@
 import axios from 'axios';
 
-// Use environment variable for API URL or fall back to default
-const apiUrl = import.meta.env.BACKEND_API || 'http://localhost:8081';
+const apiUrl = import.meta.env.VITE_BACKEND_API;
 
 const api = axios.create({
   baseURL: apiUrl, 
   headers: {
     'Content-Type': 'application/json',
   },
-  withCredentials: true, // Important for cookies
+  withCredentials: true, 
 });
 
-// Response interceptor for handling common errors
 api.interceptors.response.use(
   (response) => {
     return response;
   },
-  (error) => {
-    
+  async (error) => {
+    // Try to refresh user data and auth state if we get a 401
     if (error.response?.status === 401) {
+      // Only handle 401 errors on non-auth routes 
       if (!window.location.pathname.includes('/login') && 
           !window.location.pathname.includes('/signup') &&
-          !window.location.pathname.includes('/auth/google')) {
+          !window.location.pathname.includes('/auth/google') &&
+          !window.location.pathname.includes('/admin/login')) {
         
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('user');
-        
-        window.location.href = '/login?error=session_expired';
+        // Check if we might be able to recover
+        const token = localStorage.getItem('auth_token');
+        if (token && error.config && !error.config._retry) {
+          try {
+            // Try to get current user
+            const response = await axios.get(`${apiUrl}/user/me`, {
+              headers: {
+                'Authorization': `Bearer ${token}`
+              }
+            });
+            
+            // If successful, update user data and retry the original request
+            if (response.data) {
+              localStorage.setItem('user', JSON.stringify(response.data));
+              error.config._retry = true;
+              return api(error.config);
+            }
+          } catch (refreshError) {
+            console.error('Session refresh failed:', refreshError);
+            // If refresh failed, clear local data
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('user');
+            window.location.href = '/login?error=session_expired';
+          }
+        } else {
+          // No token or already retried, clear local data
+          localStorage.removeItem('auth_token');
+          localStorage.removeItem('user');
+          window.location.href = '/login?error=session_expired';
+        }
       }
     }
     
@@ -34,7 +60,6 @@ api.interceptors.response.use(
   }
 );
 
-// Request interceptor to add authentication token
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('auth_token');
@@ -63,6 +88,11 @@ export const authAPI = {
       if (response.data?.token) {
         localStorage.setItem('auth_token', response.data.token);
       }
+      
+      if (response.data?.user) {
+        localStorage.setItem('user', JSON.stringify(response.data.user));
+      }
+      
       return response.data;
     } catch (error) {
       console.error("Login error occurred");
@@ -71,7 +101,6 @@ export const authAPI = {
   },
   
   googleLogin: () => {
-    // Redirect to the Google OAuth endpoint
     window.location.href = `${apiUrl}/auth/google/login`;
   },
   
@@ -79,14 +108,12 @@ export const authAPI = {
     try {
       await api.post('/auth/logout');
     } finally {
-      // Always clear local storage
       localStorage.removeItem('auth_token');
       localStorage.removeItem('user');
     }
   },
   
   getCurrentUser: async () => {
-    // Use the correct path that matches the backend
     return api.get('/user/me');
   },
   
@@ -99,7 +126,6 @@ export const authAPI = {
   }
 };
 
-// Helper function to mask email addresses for logging
 function maskEmail(email: string): string {
   if (!email) return '';
   
@@ -109,7 +135,6 @@ function maskEmail(email: string): string {
   const name = parts[0];
   const domain = parts[1];
   
-  // Show only first and last character of username
   const maskedName = name.length <= 2 
     ? '*'.repeat(name.length) 
     : `${name.charAt(0)}${'*'.repeat(name.length - 2)}${name.charAt(name.length - 1)}`;
@@ -117,7 +142,6 @@ function maskEmail(email: string): string {
   return `${maskedName}@${domain}`;
 }
 
-// Re-export existing API functions
 export const fetchProducts = async () => {
   try {
     const response = await api.get('/products');
@@ -174,4 +198,25 @@ export const cartAPI = {
   updateCartItem: async (itemId: number, quantity: number) => {
     return api.post('/cart/update', { item_id: itemId, quantity });
   }
+};
+
+// Admin API Services
+export const adminApi = {
+  // Dashboard
+  getDashboardStats: () => api.get('/admin/dashboard'),
+  
+  // User Management
+  getAllUsers: () => api.get('/admin/users'),
+  getUserById: (id: number) => api.get(`/admin/users/${id}`),
+  updateUserRole: (id: number, role: string) => api.put(`/admin/users/${id}/role`, { role }),
+  
+  // Product Management
+  createProduct: (productData: any) => api.post('/admin/products', productData),
+  updateProduct: (id: number, productData: any) => api.put(`/admin/products/${id}`, productData),
+  deleteProduct: (id: number) => api.delete(`/admin/products/${id}`),
+  
+  // Order Management
+  getAllOrders: () => api.get('/admin/orders'),
+  getOrderById: (id: number) => api.get(`/admin/orders/${id}`),
+  updateOrderStatus: (id: number, status: number) => api.put(`/admin/orders/${id}/status`, { status })
 };

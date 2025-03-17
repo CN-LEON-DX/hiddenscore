@@ -27,4 +27,10 @@ type CartRepository interface {
 
 	// Checkout process
 	CloseCart(cartID uint) error
+
+	// Admin methods
+	GetAllCompletedCarts() ([]entity.Cart, error)
+	GetCartWithItems(cartID uint) (*entity.Cart, error)
+	UpdateCartStatus(cartID uint, status int) error
+	CountCompletedOrders() (int64, error)
 }

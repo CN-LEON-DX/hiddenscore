@@ -7,6 +7,7 @@ interface User {
   email: string;
   name: string;
   picture?: string | null;
+  role?: string;
 }
 
 const useAuth = () => {

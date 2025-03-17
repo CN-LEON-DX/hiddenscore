@@ -12,4 +12,5 @@ type User struct {
 	Name     string  `json:"name"`
 	Picture  string  `json:"picture"`
 	Status   string  `json:"status" gorm:"default:pending"`
+	Role     string  `json:"role" gorm:"default:user"`
 }

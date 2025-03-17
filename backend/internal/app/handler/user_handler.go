@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"backend/internal/domain/entity"
 	"backend/internal/domain/models"
 	"backend/internal/domain/repository"
 	"log"
@@ -8,6 +9,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 type UserHandler struct {
@@ -97,7 +99,21 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
 	}
 
 	// Update profile information in database
-	if err := h.Repo.Update(modelUser); err != nil {
+	googleID := modelUser.GoogleID
+	var googleIDPtr *string
+	if googleID != "" {
+		googleIDPtr = &googleID
+	}
+
+	if err := h.Repo.UpdateUser(entity.User{
+		Model:    gorm.Model{ID: modelUser.ID},
+		Email:    modelUser.Email,
+		Name:     modelUser.Name,
+		Status:   modelUser.Status,
+		Picture:  modelUser.Picture,
+		GoogleID: googleIDPtr,
+		Password: modelUser.Password,
+	}); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   "Profile update failed",
 			"message": "We couldn't update your profile. Please try again later.",
@@ -120,7 +136,6 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
 
 // GetUserOrders retrieves the order history for a user
 func (h *UserHandler) GetUserOrders(c *gin.Context) {
-	// Get user ID from the authenticated context
 	userID, exists := c.Get("userID")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{
@@ -131,13 +146,7 @@ func (h *UserHandler) GetUserOrders(c *gin.Context) {
 		return
 	}
 
-	// Log user ID for debugging
 	log.Printf("Fetching orders for user ID: %v", userID)
-
-	// In a real implementation, you would query the orders table
-	// For now, return sample data for UI testing
-
-	// Sample order items
 	sampleItems1 := []gin.H{
 		{
 			"id":           1,

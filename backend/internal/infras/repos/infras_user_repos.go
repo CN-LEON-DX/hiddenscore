@@ -87,3 +87,19 @@ func (r *PostgresUserRepository) FindByID(id uint) (*entity.User, error) {
 func (r *PostgresUserRepository) Update(user *entity.User) error {
 	return r.DB.Save(user).Error
 }
+
+func (r *PostgresUserRepository) UpdatePassword(userID uint, newPassword string) error {
+	return r.DB.Model(&entity.User{}).Where("id = ?", userID).Update("password", newPassword).Error
+}
+
+// CountUsers đếm tổng số người dùng trong hệ thống
+func (r *PostgresUserRepository) CountUsers() (int64, error) {
+	var count int64
+	result := r.DB.Model(&entity.User{}).Count(&count)
+	return count, result.Error
+}
+
+// UpdateUserRole cập nhật vai trò của người dùng
+func (r *PostgresUserRepository) UpdateUserRole(userID uint, role string) error {
+	return r.DB.Model(&entity.User{}).Where("id = ?", userID).Update("role", role).Error
+}

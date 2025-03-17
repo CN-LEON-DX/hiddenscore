@@ -212,17 +212,19 @@ func GoogleCallback(c *gin.Context) {
 		return
 	}
 
-	// Redirect to frontend with token
 	frontendURL := os.Getenv("FRONTEND_URL")
 	if frontendURL == "" {
-		frontendURL = "http://localhost:5173" // Fallback to local development URL
+		frontendURL = "http://localhost:5173"
+	}
+
+	if strings.HasSuffix(frontendURL, "/") {
+		frontendURL = strings.TrimSuffix(frontendURL, "/")
 	}
 
 	redirectURL := frontendURL + "/auth/google?token=" + jwtToken
 	c.Redirect(http.StatusTemporaryRedirect, redirectURL)
 }
 
-// Helper function to check if a user has a cart
 func userHasCart(db *gorm.DB, userID uint) bool {
 	var count int64
 	db.Table("carts").Where("user_id = ?", userID).Count(&count)

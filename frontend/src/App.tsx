@@ -24,6 +24,14 @@ import { CartProvider } from './context/CartContext';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
+// Admin components
+import AdminDashboard from './pages/AdminDashboard';
+import AdminUsers from './pages/AdminUsers';
+import AdminProducts from './pages/AdminProducts';
+import AdminOrders from './pages/AdminOrders';
+import AdminRoute from './components/AdminRoute';
+import AdminLogin from './pages/AdminLogin';
+
 function App() {
   return (
     <ErrorBoundary>
@@ -34,6 +42,7 @@ function App() {
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/admin/login" element={<AdminLogin />} />
             <Route path="/signup" element={<Signup />} />
             <Route path="/confirm-email" element={<ConfirmEmail />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -48,6 +57,15 @@ function App() {
             <Route path="/checkout" element={<Checkout/>} />
             <Route path="/auth/google/callback" element={<GoogleCallback />} />
             <Route path="/auth/google" element={<GoogleCallback />} />
+            
+            {/* Admin Routes */}
+            <Route element={<AdminRoute />}>
+              <Route path="/admin" element={<AdminDashboard />} />
+              <Route path="/admin/users" element={<AdminUsers />} />
+              <Route path="/admin/products" element={<AdminProducts />} />
+              <Route path="/admin/orders" element={<AdminOrders />} />
+            </Route>
+            
             <Route path="/error" element={<Error />} />
             <Route path="/404" element={<Error404 />} />
             <Route path="*" element={<Error404 />} />

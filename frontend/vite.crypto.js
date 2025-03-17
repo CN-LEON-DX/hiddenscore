@@ -1,8 +1,5 @@
-// Polyfill for crypto.getRandomValues in Node.js
-import { webcrypto } from 'node:crypto';
+const crypto = require('node:crypto');
 
-if (!globalThis.crypto) {
-  globalThis.crypto = webcrypto;
+if (!global.crypto) {
+  global.crypto = crypto.webcrypto;
 }
-
-export {}; 

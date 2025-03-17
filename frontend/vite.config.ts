@@ -1,9 +1,20 @@
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 
+try {
+  // @ts-ignore
+  if (typeof globalThis.window === 'undefined' && !global.crypto) {
+    const webcrypto = require('node:crypto').webcrypto;
+    // @ts-ignore
+    global.crypto = webcrypto;
+  }
+} catch (e) {
+  console.warn('Crypto polyfill not applied:', e);
+}
+
 export default defineConfig(({ mode }: { mode: string }) => {
   const env = loadEnv(mode, process.cwd(), '')
-  const backendApi = env.BACKEND_API || 'http://localhost:8081'
+  const backendApi = env.BACKEND_API
   
   return {
     plugins: [react()],
@@ -11,7 +22,6 @@ export default defineConfig(({ mode }: { mode: string }) => {
       port: 3000,
       host: true,
       proxy: {
-        // Single catch-all proxy for the backend
         '/api': {
           target: backendApi,
           changeOrigin: true,
@@ -19,7 +29,6 @@ export default defineConfig(({ mode }: { mode: string }) => {
         }
       }
     },
-    // Xử lý lỗi crypto.getRandomValues
     optimizeDeps: {
       esbuildOptions: {
         define: {
@@ -28,9 +37,16 @@ export default defineConfig(({ mode }: { mode: string }) => {
       }
     },
     build: {
-      // Bỏ qua cảnh báo
       reportCompressedSize: false,
       chunkSizeWarningLimit: 1600,
+      commonjsOptions: {
+        transformMixedEsModules: true
+      }
+    },
+    resolve: {
+      alias: {
+        'crypto': 'crypto-browserify'
+      }
     }
   }
 })

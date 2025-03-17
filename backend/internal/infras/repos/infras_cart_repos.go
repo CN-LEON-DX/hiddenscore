@@ -136,3 +136,32 @@ func (r *CartRepository) GetCartItemsWithProductDetails(cartID uint) ([]domainre
 
 	return result, nil
 }
+
+// GetAllCompletedCarts trả về danh sách tất cả đơn hàng đã hoàn thành
+func (r *CartRepository) GetAllCompletedCarts() ([]entity.Cart, error) {
+	var carts []entity.Cart
+	err := r.DB.Where("active = false").Preload("User").Find(&carts).Error
+	return carts, err
+}
+
+// GetCartWithItems trả về thông tin chi tiết của một đơn hàng bao gồm các sản phẩm
+func (r *CartRepository) GetCartWithItems(cartID uint) (*entity.Cart, error) {
+	var cart entity.Cart
+	err := r.DB.Preload("User").Preload("CartItems.Product").First(&cart, cartID).Error
+	if err != nil {
+		return nil, err
+	}
+	return &cart, nil
+}
+
+// UpdateCartStatus cập nhật trạng thái đơn hàng
+func (r *CartRepository) UpdateCartStatus(cartID uint, status int) error {
+	return r.DB.Model(&entity.Cart{}).Where("id = ?", cartID).Update("status", status).Error
+}
+
+// CountCompletedOrders đếm tổng số đơn hàng đã hoàn thành
+func (r *CartRepository) CountCompletedOrders() (int64, error) {
+	var count int64
+	result := r.DB.Model(&entity.Cart{}).Where("active = false").Count(&count)
+	return count, result.Error
+}

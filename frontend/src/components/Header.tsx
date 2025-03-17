@@ -230,6 +230,16 @@ const Header = () => {
                                                 Logout
                                             </button>
                                         </div>
+                                        {user?.role === 'admin' && (
+                                            <div className="py-1">
+                                                <a
+                                                    href="/admin"
+                                                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                                >
+                                                    Trang quản trị
+                                                </a>
+                                            </div>
+                                        )}
                                     </div>
                                 </PopoverPanel>
                             </Popover>
@@ -341,6 +351,16 @@ const Header = () => {
                                                             <XMarkIcon className="h-5 w-5 text-gray-500" aria-hidden="true" />
                                                             Logout
                                                         </button>
+                                                        {user?.role === 'admin' && (
+                                                            <div className="py-1">
+                                                                <a
+                                                                    href="/admin"
+                                                                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                                                >
+                                                                    Trang quản trị
+                                                                </a>
+                                                            </div>
+                                                        )}
                                                     </DisclosurePanel>
                                                 </>
                                             )}
