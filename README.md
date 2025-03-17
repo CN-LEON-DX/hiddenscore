@@ -67,22 +67,8 @@ npm run dev
 ##  Project Structure
 
 ```
-hiddenscore/
-├── backend/              # Go backend code
-│   ├── cmd/              # Command-line applications
-│   ├── internal/         # Private application code
-│   │   ├── app/          # Application setup
-│   │   ├── domain/       # Domain models and repositories
-│   │   └── middleware/   # HTTP middleware
-│   └── pkg/              # Public libraries
-├── frontend/             # React/TypeScript frontend
-│   ├── public/           # Static files
-│   └── src/              # Source code
-│       ├── components/   # Reusable UI components
-│       ├── hooks/        # Custom React hooks
-│       ├── pages/        # Application pages
-│       └── utils/        # Utility functions
-└── docs/                 # Documentation
+![{FA126786-1E08-4651-A6ED-82CB5E16FF51}](https://github.com/user-attachments/assets/d4a20ec3-d253-4a40-83d0-0a46f1f943c2)
+
 ```
 
 ## 🛠️ Technologies
