@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import api from '../utils/api';
 
@@ -18,6 +18,7 @@ const useAuth = () => {
   
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const isLoadingRef = useRef(false);
 
   // Check if user is authenticated
   const isAuthenticated = !!localStorage.getItem('auth_token');
@@ -31,8 +32,15 @@ const useAuth = () => {
       return;
     }
     
+    // Prevent multiple simultaneous calls
+    if (isLoadingRef.current) {
+      return;
+    }
+    
     if (!user) {
       setLoading(true);
+      isLoadingRef.current = true;
+      
       try {
         // Use the API utility with the base URL and credentials
         const response = await api.get('/user/me');
@@ -42,7 +50,6 @@ const useAuth = () => {
           localStorage.setItem('user', JSON.stringify(response.data));
         }
       } catch (error: any) {
-        console.error('Error loading user data:', error);
         setError(error.message || 'Failed to load user data');
         
         // If unauthorized, clear token
@@ -52,22 +59,30 @@ const useAuth = () => {
         }
       } finally {
         setLoading(false);
+        isLoadingRef.current = false;
       }
     } else {
       setLoading(false);
     }
   }, [user]);
 
+  // Only load user data once on initial mount
   useEffect(() => {
-    loadUserData();
-  }, [loadUserData]);
+    if (isAuthenticated && !user && !isLoadingRef.current) {
+      loadUserData();
+    } else {
+      setLoading(false);
+    }
+  }, [isAuthenticated, loadUserData, user]);
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     try {
-      // Call logout endpoint
-      await api.post('/auth/logout');
+      // Call logout endpoint only if we're authenticated
+      if (isAuthenticated) {
+        await api.post('/auth/logout');
+      }
     } catch (error) {
-      console.error("Error calling logout API:", error);
+      // Silent fail - continue with local logout
     } finally {
       // Always clear local storage regardless of API response
       localStorage.removeItem('auth_token');
@@ -77,7 +92,7 @@ const useAuth = () => {
       // Redirect to home after logout
       window.location.href = '/';
     }
-  };
+  }, [isAuthenticated]);
 
   return { 
     user, 

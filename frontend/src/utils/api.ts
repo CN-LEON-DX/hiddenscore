@@ -17,13 +17,11 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
-    // No error logging, just handle the error
+    
     if (error.response?.status === 401) {
       if (!window.location.pathname.includes('/login') && 
           !window.location.pathname.includes('/signup') &&
-          !window.location.pathname.includes('/auth/google') &&
-          !window.location.pathname.includes('/forgot-password') &&
-          !window.location.pathname.includes('/reset-password')) {
+          !window.location.pathname.includes('/auth/google')) {
         
         localStorage.removeItem('auth_token');
         localStorage.removeItem('user');
@@ -56,6 +54,7 @@ export default api;
 export const authAPI = {
   login: async (email: string, password: string) => {
     try {
+      
       const response = await api.post('/auth/login', { 
         email: email.trim(), 
         password 
@@ -66,11 +65,13 @@ export const authAPI = {
       }
       return response.data;
     } catch (error) {
+      console.error("Login error occurred");
       throw error;
     }
   },
   
   googleLogin: () => {
+    // Redirect to the Google OAuth endpoint
     window.location.href = `${apiUrl}/auth/google/login`;
   },
   
@@ -78,12 +79,14 @@ export const authAPI = {
     try {
       await api.post('/auth/logout');
     } finally {
+      // Always clear local storage
       localStorage.removeItem('auth_token');
       localStorage.removeItem('user');
     }
   },
   
   getCurrentUser: async () => {
+    // Use the correct path that matches the backend
     return api.get('/user/me');
   },
   
@@ -91,19 +94,30 @@ export const authAPI = {
     return api.post('/auth/forgot-password', { email: email.trim() });
   },
   
-  validateResetToken: async (token: string) => {
-    return api.post('/auth/validate-reset-token', { token });
-  },
-  
-  resetPassword: async (token: string, password: string) => {
-    return api.post('/auth/reset-password', { token, password });
-  },
-  
   changePassword: async (currentPassword: string, newPassword: string) => {
     return api.post('/auth/change-password', { currentPassword, newPassword });
   }
 };
 
+// Helper function to mask email addresses for logging
+function maskEmail(email: string): string {
+  if (!email) return '';
+  
+  const parts = email.split('@');
+  if (parts.length !== 2) return '[invalid email format]';
+  
+  const name = parts[0];
+  const domain = parts[1];
+  
+  // Show only first and last character of username
+  const maskedName = name.length <= 2 
+    ? '*'.repeat(name.length) 
+    : `${name.charAt(0)}${'*'.repeat(name.length - 2)}${name.charAt(name.length - 1)}`;
+    
+  return `${maskedName}@${domain}`;
+}
+
+// Re-export existing API functions
 export const fetchProducts = async () => {
   try {
     const response = await api.get('/products');

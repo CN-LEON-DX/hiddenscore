@@ -11,13 +11,10 @@ const GoogleCallback = () => {
   useEffect(() => {
     const handleCallback = async () => {
       try {
-        setLoading(true);
         const searchParams = new URLSearchParams(location.search);
         const token = searchParams.get('token');
         const code = searchParams.get('code');
         const errorParam = searchParams.get('error');
-        
-        console.log("GoogleCallback params:", { token, code, error: errorParam, path: location.pathname, search: location.search });
         
         if (errorParam) {
           setError(`Authentication error: ${errorParam}`);
@@ -26,88 +23,49 @@ const GoogleCallback = () => {
         }
         
         if (token) {
-          console.log("Token found in URL, storing and redirecting to home");
+          // Save token immediately
           localStorage.setItem('auth_token', token);
           
-          // Clear any previous errors from localStorage
+          // Clear any previous errors
           localStorage.removeItem('auth_error');
           
-          // Short delay before redirect to ensure token is saved
-          setTimeout(() => {
-            navigate('/');
-          }, 100);
+          // Navigate immediately without delay
+          navigate('/');
           return;
         }
         
+        // If we have a code but no token, we need to exchange it
         if (code) {
-          console.log("Code found, calling backend...");
-          
           try {
-            // Use the full URL to avoid CORS issues with different ports
-            const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:8081';
-            const response = await fetch(`${backendUrl}/auth/google/callback${location.search}`, {
+            const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/auth/google/callback?code=${code}`, {
               method: 'GET',
               credentials: 'include',
-              headers: {
-                'Accept': 'application/json',
-              },
             });
             
             if (!response.ok) {
-              const errorData = await response.json();
-              
-              if (errorData.code === 'EMAIL_ALREADY_EXISTS') {
-                navigate('/login?error=email_exists');
-                return;
-              }
-              
-              throw new Error(errorData.error || errorData.message || 'Failed to authenticate with Google');
+              throw new Error('Failed to exchange code for token');
             }
             
-            // If we get here with code but no redirect happened,
-            // the server might have returned JSON instead of a redirect
-            try {
-              const data = await response.json();
-              
-              if (data.token) {
-                localStorage.setItem('auth_token', data.token);
-                navigate('/');
-              } else if (data.redirect_to) {
-                window.location.href = data.redirect_to;
-              } else {
-                throw new Error('Invalid response from server');
-              }
-            } catch (jsonError) {
-              // Response might not be JSON, which is okay if it was a redirect
-              console.log('Response was not JSON, but might be a redirect');
-              
-              // If we're still on the callback page, something went wrong
-              if (window.location.pathname.includes('/auth/google')) {
-                setError('Authentication failed: No redirect occurred');
-                navigate('/login?error=auth_failed');
-              }
+            const data = await response.json();
+            
+            if (data.token) {
+              localStorage.setItem('auth_token', data.token);
+              navigate('/');
+            } else {
+              throw new Error('No token received from server');
             }
-          } catch (fetchError: any) {
-            console.error('Fetch error in Google callback:', fetchError);
-            setError(`Authentication failed: ${fetchError.message}`);
-            toast.error('Login failed. Please try again.', {
-              position: "top-right",
-              autoClose: 3000
-            });
+          } catch (exchangeError: any) {
+            console.error('Error exchanging code for token:', exchangeError);
+            setError(`Authentication error: ${exchangeError.message}`);
             navigate('/login?error=auth_failed');
           }
         } else {
-          console.error("No token or code found in callback URL");
           setError('Missing authentication data');
           navigate('/login?error=missing_auth_data');
         }
       } catch (error: any) {
-        console.error('Error in Google callback:', error);
+        console.error('Authentication error:', error);
         setError(`Authentication error: ${error.message}`);
-        toast.error('Login failed. Please try again.', {
-          position: "top-right",
-          autoClose: 3000
-        });
         navigate('/login?error=auth_failed');
       } finally {
         setLoading(false);
@@ -117,27 +75,36 @@ const GoogleCallback = () => {
     handleCallback();
   }, [location, navigate]);
 
-  return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 dark:bg-gray-900">
-      {loading ? (
-        <>
-          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-indigo-600"></div>
-          <p className="mt-4 text-lg text-gray-700 dark:text-gray-300">Processing your login...</p>
-        </>
-      ) : error ? (
-        <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-md">
-          <p className="text-red-500 text-lg mb-4">Authentication Error</p>
-          <p className="text-gray-700 dark:text-gray-300">{error}</p>
+  // Simplified loading UI
+  if (loading) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600 mb-4"></div>
+        <p className="text-gray-700 dark:text-gray-300">Processing login...</p>
+      </div>
+    );
+  }
+
+  // Show error if there's one
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md max-w-md">
+          <p className="text-red-500 font-medium mb-2">Login Error</p>
+          <p className="text-gray-700 dark:text-gray-300 mb-4">{error}</p>
           <button 
             onClick={() => navigate('/login')}
-            className="mt-6 bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 transition-colors"
+            className="w-full bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700"
           >
-            Return to Login
+            Back to Login
           </button>
         </div>
-      ) : null}
-    </div>
-  );
+      </div>
+    );
+  }
+
+  // If neither loading nor error, render nothing (redirect should happen)
+  return null;
 };
 
 export default GoogleCallback; 

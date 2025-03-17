@@ -149,18 +149,25 @@ func (h *AuthHandler) RegisterWithGmail(c *gin.Context) {
 		return
 	}
 
-	// Create user
-	user := &entity.User{
-		Email:    input.Email,
-		Password: string(hashedPassword),
-		Name:     input.Name,
-		Status:   "pending",
+	// Trực tiếp kết nối DB để thêm user với GoogleID là NULL
+	db, dbErr := database.Connect()
+	if dbErr != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Database connection error",
+			"message": "We're experiencing technical difficulties. Please try again later.",
+			"code":    "DB_ERROR",
+		})
+		return
 	}
 
-	newUser, err := h.UserRepo.CreateUser(*user)
-	if err != nil {
-		// Check for duplicate error
-		if strings.Contains(err.Error(), "duplicate key") || strings.Contains(err.Error(), "23505") {
+	// Tạo user trực tiếp với SQL
+	result := db.Exec(`
+		INSERT INTO users (email, password, name, status, created_at, updated_at) 
+		VALUES (?, ?, ?, ?, NOW(), NOW())
+	`, input.Email, string(hashedPassword), input.Name, "pending")
+
+	if result.Error != nil {
+		if strings.Contains(result.Error.Error(), "duplicate key") || strings.Contains(result.Error.Error(), "23505") {
 			c.JSON(http.StatusConflict, gin.H{
 				"error":   "Email already registered",
 				"message": "This email address is already registered. Please try logging in instead.",
@@ -173,6 +180,19 @@ func (h *AuthHandler) RegisterWithGmail(c *gin.Context) {
 			"error":   "Registration failed",
 			"message": "We couldn't complete your registration. Please try again later.",
 			"code":    "REGISTRATION_FAILED",
+		})
+		return
+	}
+
+	// Lấy user ID từ DB
+	var newUser entity.User
+	db.Where("email = ?", input.Email).First(&newUser)
+
+	if newUser.ID == 0 {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Failed to retrieve user",
+			"message": "Registration succeeded but we couldn't retrieve your user information.",
+			"code":    "USER_RETRIEVAL_FAILED",
 		})
 		return
 	}
@@ -230,28 +250,23 @@ func (h *AuthHandler) ConfirmEmail(c *gin.Context) {
 		return
 	}
 
-	// Find tmp record with this token
 	tmpUser, err := h.tmpRepo.FindByToken(token)
 	if err != nil || tmpUser == nil {
 		c.JSON(400, gin.H{"error": "Invalid or expired confirmation link"})
 		return
 	}
 
-	// Check if token is expired (e.g., 5 minutes)
 	if time.Since(tmpUser.CreatedAt) > 5*time.Minute {
-		// Just reject the expired token
 		log.Printf("Rejecting expired token for user ID: %d", tmpUser.UserID)
 		c.JSON(400, gin.H{"error": "Confirmation link has expired. Please register again."})
 		return
 	}
 
-	// Check if already confirmed
 	if tmpUser.Status == "true" {
 		c.JSON(400, gin.H{"error": "Email already confirmed"})
 		return
 	}
 
-	// Get the user
 	user, err := h.UserRepo.GetUserByID(tmpUser.UserID)
 	if err != nil {
 		c.JSON(500, gin.H{"error": "User not found"})
@@ -285,7 +300,6 @@ func (h *AuthHandler) LoginWithGmail(c *gin.Context) {
 		return
 	}
 
-	// Find user by email
 	user, err := h.UserRepo.FindByEmail(input.Email)
 	if err != nil || user == nil {
 		c.JSON(http.StatusUnauthorized, gin.H{
@@ -306,27 +320,20 @@ func (h *AuthHandler) LoginWithGmail(c *gin.Context) {
 		return
 	}
 
-	// Skip confirmation check for non-production environments
 	if os.Getenv("APP_ENV") != "production" {
 		log.Printf("Development mode: Skipping confirmation check for user %d", user.ID)
 	} else {
-		// In production, check confirmation status
 		var tmpUser models.TmpUser
 		confirmationRequired := true
-
-		// Check if this is an older account (created before email verification was implemented)
 		if user.CreatedAt.Before(time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC)) {
 			log.Printf("Legacy user from before verification system, skipping check: %d", user.ID)
 			confirmationRequired = false
 		}
 
-		// Try to find confirmation record
 		err := h.tmpRepo.FindByUserID(user.ID, &tmpUser)
 
-		// If we can't find a confirmation record but confirmation is required
 		if err != nil && confirmationRequired {
 			log.Printf("No confirmation record found for user %d, creating new one", user.ID)
-			// Create a new verification record
 			token, tokenErr := generateToken(32)
 			if tokenErr == nil {
 				newTmpRecord := &models.TmpUser{
@@ -336,11 +343,9 @@ func (h *AuthHandler) LoginWithGmail(c *gin.Context) {
 					CreatedAt:   time.Now(),
 				}
 
-				// Create the verification record
 				if createErr := h.tmpRepo.Create(newTmpRecord); createErr != nil {
 					log.Printf("Failed to create verification record: %v", createErr)
 				} else {
-					// Try to send verification email
 					if emailErr := sendConfirmationEmail(user.Email, token); emailErr != nil {
 						log.Printf("Failed to send verification email: %v", emailErr)
 					} else {
@@ -356,10 +361,8 @@ func (h *AuthHandler) LoginWithGmail(c *gin.Context) {
 				return
 			}
 		} else if err == nil && tmpUser.Status != "true" && confirmationRequired {
-			// If we found a record but it's not confirmed
 			log.Printf("User %d has unconfirmed email, resending confirmation", user.ID)
 
-			// Resend confirmation email
 			if emailErr := sendConfirmationEmail(user.Email, tmpUser.TokenRemain); emailErr != nil {
 				log.Printf("Failed to resend confirmation email: %v", emailErr)
 			} else {
@@ -386,6 +389,27 @@ func (h *AuthHandler) LoginWithGmail(c *gin.Context) {
 		return
 	}
 
+	// Ensure GoogleID is set to NULL for email logins
+	if user.GoogleID != nil {
+		// Direct SQL update to set GoogleID to NULL
+		db, dbErr := database.Connect()
+		if dbErr != nil {
+			log.Printf("Database connection error: %v", dbErr)
+			// Continue with login even if we can't update GoogleID
+		} else {
+			// Sử dụng SQL UPDATE để đặt GoogleID là NULL
+			result := db.Exec("UPDATE users SET google_id = NULL WHERE id = ?", user.ID)
+			if result.Error != nil {
+				log.Printf("Failed to update GoogleID to NULL: %v", result.Error)
+				// Continue with login even if update fails
+			} else {
+				log.Printf("Successfully set GoogleID to NULL for user %d", user.ID)
+				// Cập nhật giá trị trong object user để sử dụng tiếp
+				user.GoogleID = nil
+			}
+		}
+	}
+
 	// Generate JWT token
 	token, err := h.generateJWT(user)
 	if err != nil {
@@ -399,15 +423,12 @@ func (h *AuthHandler) LoginWithGmail(c *gin.Context) {
 
 	// Check if user has a cart
 	if !h.userHasCart(user.ID) {
-		// Create a cart for the user
 		err = h.createCartForUser(user.ID)
 		if err != nil {
-			// Just log the error but continue, cart creation is not critical
 			log.Printf("Failed to create cart for user %d on login: %v", user.ID, err)
 		}
 	}
 
-	// Set cookie with token
 	c.SetCookie(
 		"auth_token",
 		token,
@@ -459,7 +480,6 @@ func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 		return
 	}
 
-	// Make sure we have valid user info
 	if userInfo.ID == "" || userInfo.Email == "" {
 		log.Printf("Invalid user info from Google: ID or Email is empty")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user information from Google"})
@@ -468,19 +488,15 @@ func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 
 	log.Printf("Successfully received Google user info for: %s (%s)", userInfo.Email, userInfo.ID)
 
-	// First check if the user exists by email - they might have registered with email first
 	existingUserByEmail, _ := h.UserRepo.FindByEmail(userInfo.Email)
 
 	var user entity.User
 
 	if existingUserByEmail != nil && existingUserByEmail.GoogleID == nil {
-		// User exists with email but no Google ID - update their account to link Google ID
 		log.Printf("Updating existing email user %d to link with Google ID: %s", existingUserByEmail.ID, userInfo.ID)
 		existingUserByEmail.GoogleID = &userInfo.ID
 		existingUserByEmail.Picture = userInfo.Picture
 
-		// Since UpdateUser is missing, we'll handle this differently
-		// Save the updated user with direct DB access
 		db, dbErr := database.Connect()
 		if dbErr != nil {
 			log.Printf("Database connection error: %v", dbErr)
@@ -495,10 +511,8 @@ func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 		}
 		user = *existingUserByEmail
 	} else {
-		// Try to find user by Google ID
 		user, err = h.UserRepo.FindUserByGoogleID(userInfo.ID)
 		if err != nil {
-			// Google user doesn't exist, create new user
 			log.Printf("Creating new user from Google: %s", userInfo.Email)
 
 			googleID := userInfo.ID
@@ -507,7 +521,7 @@ func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 				Email:    userInfo.Email,
 				Name:     userInfo.Name,
 				Picture:  userInfo.Picture,
-				Status:   "active", // Google-authenticated users are automatically verified
+				Status:   "active",
 			}
 
 			user, err = h.UserRepo.CreateUser(newUser)
@@ -517,18 +531,15 @@ func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 				return
 			}
 
-			// Create cart for new user
 			err = h.createCartForUser(user.ID)
 			if err != nil {
 				log.Printf("Failed to create cart for new Google user %d: %v", user.ID, err)
-				// Continue anyway, cart creation is not critical for auth
 			}
 		} else {
 			log.Printf("Found existing Google user: %s (ID: %d)", user.Email, user.ID)
 		}
 	}
 
-	// Generate JWT token for the user
 	jwtToken, err := h.generateJWT(&user)
 	if err != nil {
 		log.Printf("Failed to generate JWT token: %v", err)
@@ -536,7 +547,6 @@ func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 		return
 	}
 
-	// Set authentication cookie
 	c.SetCookie(
 		"auth_token",
 		jwtToken,
@@ -547,16 +557,13 @@ func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 		true,
 	)
 
-	// Get frontend URL from environment or use default
 	frontendURL := os.Getenv("FRONTEND_URL")
 	if frontendURL == "" {
 		frontendURL = "http://localhost:3000" // Fallback
 	}
 
-	// Build redirect URL with token
 	redirectURL := frontendURL + "/auth/google?token=" + jwtToken
 
-	// Special case for localhost
 	if strings.Contains(redirectURL, "localhost") && !strings.HasPrefix(redirectURL, "http://") {
 		redirectURL = strings.Replace(redirectURL, "https://", "http://", 1)
 	}
@@ -1058,7 +1065,6 @@ func (h *AuthHandler) ResetPassword(c *gin.Context) {
 
 // ChangePassword handles password changes for authenticated users
 func (h *AuthHandler) ChangePassword(c *gin.Context) {
-	// Get current user from middleware
 	userID, exists := c.Get("userID")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{
@@ -1116,23 +1122,22 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 		return
 	}
 
-	// Create a models.User for Update
-	modelUser := &models.User{
-		ID:       user.ID,
-		Email:    user.Email,
-		Password: string(hashedPassword),
-		Name:     user.Name,
-		Status:   user.Status,
-	}
-	if user.GoogleID != nil {
-		modelUser.GoogleID = *user.GoogleID
-	}
-	if user.Picture != "" {
-		modelUser.Picture = user.Picture
+	// Kết nối database
+	db, dbErr := database.Connect()
+	if dbErr != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Database connection error",
+			"message": "We're experiencing technical difficulties. Please try again later.",
+			"code":    "DB_ERROR",
+		})
+		return
 	}
 
-	// Update the user's password
-	if err := h.UserRepo.Update(modelUser); err != nil {
+	// Chỉ cập nhật trường password
+	result := db.Exec("UPDATE users SET password = ? WHERE id = ?",
+		string(hashedPassword), userID)
+
+	if result.Error != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   "Password update failed",
 			"message": "We couldn't update your password. Please try again later.",

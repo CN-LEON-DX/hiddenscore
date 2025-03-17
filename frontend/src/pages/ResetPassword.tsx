@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { authAPI } from '../utils/api';
+import api from '../utils/api';
 
 export default function ResetPassword() {
   const [password, setPassword] = useState('');
@@ -32,7 +32,7 @@ export default function ResetPassword() {
     // Validate token
     const validateToken = async () => {
       try {
-        await authAPI.validateResetToken(tokenFromUrl);
+        await api.post('/auth/validate-reset-token', { token: tokenFromUrl });
         setIsValidToken(true);
       } catch (error) {
         setError('Your password reset link is invalid or has expired');
@@ -68,7 +68,10 @@ export default function ResetPassword() {
     setError('');
     
     try {
-      await authAPI.resetPassword(token, password);
+      await api.post('/auth/reset-password', {
+        token,
+        password
+      });
       
       setSuccess('Your password has been reset successfully');
       setPassword('');
